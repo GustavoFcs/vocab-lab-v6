@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { Trash2, RotateCcw, Volume2 } from "lucide-react"
+import { Trash2, RotateCcw, Volume2, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import type { Flashcard, ClassifiedWord, PartOfSpeech } from "@/lib/types"
+import { useAnimations } from "@/hooks/use-animations"
 
 interface FlashcardCardProps {
   flashcard: Flashcard
@@ -41,27 +42,27 @@ function ClassifiedWordList({
   words: ClassifiedWord[]
   label: string 
 }) {
-  if (words.length === 0) return null
+  if (!words || words.length === 0) return null
 
   return (
-    <div>
-      <span className="text-xs font-medium text-muted-foreground">
+    <div className="space-y-1">
+      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
         {label}:
       </span>
-      <div className="flex flex-wrap gap-1.5 mt-1">
+      <div className="flex flex-wrap gap-1.5">
         {words.map((item, idx) => (
           <Badge
             key={idx}
             variant="outline"
             className={cn(
-              "text-xs font-normal",
+              "text-[10px] font-medium py-0 px-2 h-5 border-0",
               item.type === "literal" 
-                ? "bg-primary/10 text-primary border-primary/20" 
-                : "bg-muted text-muted-foreground border-muted-foreground/20"
+                ? "bg-blue-500/10 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300" 
+                : "bg-purple-500/10 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300"
             )}
           >
             {item.word}
-            <span className="ml-1 opacity-60 text-[10px]">
+            <span className="ml-1 opacity-50 text-[8px] font-normal">
               ({item.type === "literal" ? "lit" : "abs"})
             </span>
           </Badge>
@@ -73,6 +74,7 @@ function ClassifiedWordList({
 
 export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: FlashcardCardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
+  const { enabled: animationsEnabled } = useAnimations()
 
   const speak = (text: string) => {
     const utterance = new SpeechSynthesisUtterance(text)
@@ -81,20 +83,32 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
   }
 
   const partOfSpeech = flashcard.partOfSpeech || "noun"
-  const alternativeForms = flashcard.alternativeForms || []
+  const alternativeForms = (flashcard.alternativeForms || []).filter(f => f.translation && f.partOfSpeech)
 
   // List Layout
   if (layout === "list") {
     return (
       <Card className="flex flex-col sm:flex-row items-center justify-between p-4 gap-4 hover:shadow-md transition-shadow">
-        <div className="flex items-center gap-4 flex-1">
-          <Badge 
-            variant="outline" 
-            className={cn("text-[10px] h-5", partOfSpeechColors[partOfSpeech])}
-          >
-            {partOfSpeechLabels[partOfSpeech]}
-          </Badge>
-          <div className="flex flex-col">
+        <div className="flex items-center justify-between gap-4 flex-1">
+            <div className="flex items-center gap-2">
+              <Badge 
+                variant="outline" 
+                className={cn("text-[10px] h-5", partOfSpeechColors[partOfSpeech])}
+              >
+                {partOfSpeechLabels[partOfSpeech]}
+              </Badge>
+              {flashcard.verbType && (
+                <Badge variant="outline" className="text-[9px] uppercase tracking-wider border-primary/30 text-primary h-5">
+                  {flashcard.verbType}
+                </Badge>
+              )}
+              {flashcard.falseCognate?.isFalseCognate && (
+                <Badge className="text-[9px] px-1.5 h-4 bg-amber-500 hover:bg-amber-600 border-0 text-white font-bold uppercase tracking-tighter">
+                  Falso Cognato
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-col">
             <h3 className="text-lg font-bold text-foreground leading-tight">
               {flashcard.word}
             </h3>
@@ -134,7 +148,10 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
         </div>
 
         {isFlipped && (
-          <div className="w-full mt-4 pt-4 border-t border-border grid sm:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className={cn(
+            "w-full mt-4 pt-4 border-t border-border grid sm:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2",
+            animationsEnabled ? "duration-300" : "duration-0"
+          )}>
             <div className="space-y-2">
               <ClassifiedWordList words={flashcard.synonyms} label="Sinônimos" />
               <ClassifiedWordList words={flashcard.antonyms} label="Antônimos" />
@@ -146,11 +163,13 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
             {flashcard.conjugations && (
               <div className="bg-primary/5 rounded-lg p-3">
                 <span className="text-[10px] font-bold text-primary/70 uppercase block mb-2">Verb Tenses</span>
-                <div className="grid grid-cols-2 gap-2 text-[10px]">
-                  <div className="flex justify-between"><span className="opacity-60">Pres.</span><span>{flashcard.conjugations.simplePresent}</span></div>
-                  <div className="flex justify-between"><span className="opacity-60">Past</span><span>{flashcard.conjugations.simplePast}</span></div>
-                  <div className="flex justify-between"><span className="opacity-60">P. Cont.</span><span>{flashcard.conjugations.presentContinuous}</span></div>
-                  <div className="flex justify-between"><span className="opacity-60">P. Perf.</span><span>{flashcard.conjugations.presentPerfect}</span></div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+                  <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Present</span><span className="truncate">{flashcard.conjugations.simplePresent}</span></div>
+                  <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Past</span><span className="truncate">{flashcard.conjugations.simplePast}</span></div>
+                  <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Pres. Cont.</span><span className="truncate">{flashcard.conjugations.presentContinuous}</span></div>
+                  <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Past Cont.</span><span className="truncate">{flashcard.conjugations.pastContinuous}</span></div>
+                  <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Pres. Perf.</span><span className="truncate">{flashcard.conjugations.presentPerfect}</span></div>
+                  <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Past Perf.</span><span className="truncate">{flashcard.conjugations.pastPerfect}</span></div>
                 </div>
               </div>
             )}
@@ -165,14 +184,27 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
     return (
       <Card className="group relative overflow-hidden h-24 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setIsFlipped(!isFlipped)}>
         <div className={cn(
-          "absolute inset-0 p-3 transition-all duration-300 flex flex-col justify-between",
+          "absolute inset-0 p-3 flex flex-col justify-between transition-all",
+          animationsEnabled ? "duration-300" : "duration-0",
           isFlipped ? "opacity-0 translate-y-[-100%]" : "opacity-100 translate-y-0"
         )}>
-          <div className="flex justify-between items-start">
-            <h3 className="font-bold text-base truncate pr-8">{flashcard.word}</h3>
-            <Badge className={cn("text-[9px] px-1 h-4", partOfSpeechColors[partOfSpeech])}>
-              {partOfSpeechLabels[partOfSpeech].substring(0, 3)}.
-            </Badge>
+          <div className="flex justify-between items-start gap-1">
+            <h3 className="font-bold text-base truncate pr-1 flex-1">{flashcard.word}</h3>
+            <div className="flex flex-col items-end gap-0.5 shrink-0">
+              <Badge className={cn("text-[8px] px-1 h-3.5", partOfSpeechColors[partOfSpeech])}>
+                {partOfSpeechLabels[partOfSpeech].substring(0, 3)}.
+              </Badge>
+              {flashcard.verbType && (
+                <Badge variant="outline" className="text-[7px] px-1 h-3 border-primary/30 text-primary uppercase font-bold">
+                  {flashcard.verbType === "regular" ? "Reg" : "Irr"}
+                </Badge>
+              )}
+              {flashcard.falseCognate?.isFalseCognate && (
+                <Badge className="text-[7px] px-1 h-3 bg-amber-500 text-white border-0 font-bold uppercase shrink-0">
+                  Falso
+                </Badge>
+              )}
+            </div>
           </div>
           <p className="text-xs text-muted-foreground truncate italic">
             {flashcard.example.substring(0, 40)}...
@@ -180,7 +212,8 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
         </div>
 
         <div className={cn(
-          "absolute inset-0 p-3 bg-primary/5 transition-all duration-300 flex flex-col justify-center",
+          "absolute inset-0 p-3 bg-primary/5 flex flex-col justify-center transition-all",
+          animationsEnabled ? "duration-300" : "duration-0",
           isFlipped ? "opacity-100 translate-y-0" : "opacity-0 translate-y-[100%]"
         )}>
           <p className="text-sm font-bold text-center">{flashcard.translation}</p>
@@ -207,19 +240,32 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
     >
       <div
         className={cn(
-          "relative h-full w-full transition-transform duration-500 transform-style-3d",
+          "relative h-full w-full transform-style-3d transition-transform",
+          animationsEnabled ? "duration-500" : "duration-0",
           isFlipped && "rotate-y-180"
         )}
       >
         {/* Front */}
         <div className="absolute inset-0 backface-hidden rounded-xl border bg-card p-6 shadow-sm flex flex-col">
           <div className="flex items-start justify-between">
-            <Badge 
-              variant="outline" 
-              className={cn("text-xs font-medium", partOfSpeechColors[partOfSpeech])}
-            >
-              {partOfSpeechLabels[partOfSpeech]}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge 
+                variant="outline" 
+                className={cn("text-xs font-medium", partOfSpeechColors[partOfSpeech])}
+              >
+                {partOfSpeechLabels[partOfSpeech]}
+              </Badge>
+              {flashcard.verbType && (
+                <Badge variant="outline" className="text-[10px] uppercase tracking-wider border-primary/30 text-primary">
+                  {flashcard.verbType}
+                </Badge>
+              )}
+              {flashcard.falseCognate?.isFalseCognate && (
+                <Badge className="text-[10px] bg-amber-500 hover:bg-amber-600 border-0 text-white font-bold uppercase tracking-tight">
+                  Falso Cognato
+                </Badge>
+              )}
+            </div>
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
               <Button
                 variant="ghost"
@@ -263,12 +309,19 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
         {/* Back */}
         <div className="absolute inset-0 backface-hidden rotate-y-180 rounded-xl border bg-primary/5 p-5 shadow-sm flex flex-col overflow-hidden">
           <div className="flex items-start justify-between mb-2">
-            <Badge 
-              variant="outline" 
-              className={cn("text-xs font-medium", partOfSpeechColors[partOfSpeech])}
-            >
-              {partOfSpeechLabels[partOfSpeech]}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge 
+                variant="outline" 
+                className={cn("text-xs font-medium", partOfSpeechColors[partOfSpeech])}
+              >
+                {partOfSpeechLabels[partOfSpeech]}
+              </Badge>
+              {flashcard.verbType && (
+                <Badge variant="outline" className="text-[10px] uppercase tracking-wider border-primary/30 text-primary">
+                  {flashcard.verbType}
+                </Badge>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2.5 flex-1 overflow-y-auto pr-1">
@@ -322,26 +375,35 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
               </div>
             )}
 
+            {flashcard.falseCognate?.isFalseCognate && (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-2 flex items-start gap-2">
+                <AlertTriangle className="size-3.5 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-amber-700 leading-tight">
+                  {flashcard.falseCognate.warning}
+                </p>
+              </div>
+            )}
+
             {alternativeForms.length > 0 && (
               <div className="pt-2 border-t border-border/50">
-                <span className="text-xs font-medium text-muted-foreground block mb-2">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-2">
                   Outras formas:
                 </span>
                 <div className="space-y-2">
                   {alternativeForms.map((form, idx) => (
-                    <div key={idx} className="bg-card/50 rounded-lg p-2">
+                    <div key={idx} className="bg-card/50 rounded-lg p-2 border border-border/30">
                       <div className="flex items-center gap-2 mb-1">
                         <Badge 
                           variant="outline" 
-                          className={cn("text-[10px] font-medium", partOfSpeechColors[form.partOfSpeech])}
+                          className={cn("text-[9px] h-4 font-bold uppercase tracking-tighter border-0", partOfSpeechColors[form.partOfSpeech])}
                         >
                           {partOfSpeechLabels[form.partOfSpeech]}
                         </Badge>
-                        <span className="text-sm font-medium text-foreground">
+                        <span className="text-xs font-bold text-foreground">
                           {form.translation}
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground italic">
+                      <p className="text-[10px] text-muted-foreground italic leading-tight">
                         {form.example}
                       </p>
                     </div>

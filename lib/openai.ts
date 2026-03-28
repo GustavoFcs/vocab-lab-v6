@@ -1,6 +1,4 @@
-'use server'
-
-import type { FlashcardAIResponse, GrammarExercise, Flashcard } from "@/lib/types"
+import type { Flashcard, GrammarExercise } from "./types"
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 
@@ -20,6 +18,7 @@ interface OpenAIResponse {
 async function callOpenAI<T>(
   apiKey: string,
   messages: OpenAIMessage[],
+  model: string = "gpt-4o-mini",
   responseFormat?: { type: "json_object" }
 ): Promise<T> {
   const response = await fetch(OPENAI_API_URL, {
@@ -29,7 +28,7 @@ async function callOpenAI<T>(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model,
       messages,
       temperature: 0.7,
       ...(responseFormat && { response_format: responseFormat }),
@@ -37,44 +36,89 @@ async function callOpenAI<T>(
   })
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}))
-    throw new Error(error.error?.message || `API Error: ${response.status}`)
+    const error = await response.json()
+    throw new Error(error.error?.message || "Erro na chamada da API")
   }
 
   const data: OpenAIResponse = await response.json()
-  const content = data.choices[0]?.message?.content
+  const content = data.choices[0].message.content
 
   if (!content) {
-    throw new Error("No response from API")
+    throw new Error("Resposta da IA vazia")
   }
 
   return JSON.parse(content) as T
 }
 
+export interface FlashcardAIResponse {
+  normalizedWord: string
+  partOfSpeech: string
+  translation: string
+  synonyms: { word: string; type: "literal" | "abstract" }[]
+  antonyms: { word: string; type: "literal" | "abstract" }[]
+  example: string
+  alternativeForms: {
+    partOfSpeech: string
+    translation: string
+    example: string
+  }[]
+  verbType?: "regular" | "irregular" | null
+  falseCognate: {
+    isFalseCognate: boolean
+    warning: string
+  }
+  conjugations?: {
+    simplePresent: string
+    simplePast: string
+    presentContinuous: string
+    pastContinuous: string
+    presentPerfect: string
+    pastPerfect: string
+  } | null
+}
+
 export async function generateFlashcardData(
   apiKey: string,
-  word: string
+  word: string,
+  model: string = "gpt-4o-mini"
 ): Promise<FlashcardAIResponse> {
+  console.log(`[OpenAI] Calling ${model} for word: ${word}`);
   const messages: OpenAIMessage[] = [
     {
       role: "system",
-      content: `You are a helpful English language teacher for Portuguese speakers. When given an English word:
+      content: `You are a senior American English teacher specializing in teaching Brazilian Portuguese speakers. 
+Your base of knowledge is strictly AMERICAN ENGLISH.
+
+When given an English word, perform these steps:
 1. If it's a verb in any form (e.g., "running", "ran", "lifts"), NORMALIZE it to its base form/infinitive (e.g., "run", "lift"). Return this in "normalizedWord".
-2. Its primary part of speech.
-3. Portuguese translation.
-4. Synonyms and antonyms.
-5. An example sentence.
-6. IMPORTANT: If the part of speech is "verb", provide its conjugation in these 6 English tenses: Simple Present (3rd person singular), Simple Past, Present Continuous, Past Continuous, Present Perfect, and Past Perfect.
+2. Its primary part of speech in American English.
+3. Portuguese translation. Provide exactly 1 or 2 most common and accurate translations in Portuguese, separated by slashes.
+   - Example for "Fabric": "tecido / pano".
+4. English synonyms and antonyms. Provide 2-4 synonyms and 1-3 antonyms that are highly relevant. If none exist, return [].
+5. An natural example sentence in American English.
+6. If the part of speech is "verb", provide its conjugation in these 6 English tenses: Simple Present (3rd person singular), Simple Past, Present Continuous, Past Continuous, Present Perfect, and Past Perfect. Also, identify if it is "regular" or "irregular".
+7. FALSE COGNATE DETECTION (ULTRA-STRICT): 
+   - You must check EVERY word (noun, verb, adverb, adjective, etc.) to see if it is a false cognate (falso amigo) for Portuguese speakers.
+   - A word is a false cognate if its spelling or sound resembles a Portuguese word, but its meaning in American English is different.
+   - EXAMPLES TO DETECT: "Actually" (looks like atualmente), "Parents" (looks like parentes), "Library" (looks like livraria), "Push" (looks like puxe), "Novel" (looks like novela), "Fabric" (looks like fábrica), "Attend" (looks like atender), "Pretend" (looks like pretender), "Notice" (looks like notícia), etc.
+   - If it IS a false cognate, set "isFalseCognate" to true and provide a mandatory warning following this pattern: "Word: Significado Correto (não é 'Palavra Errada' - que seria 'Tradução da Errada')".
+   - If NOT a false cognate, set "isFalseCognate" to false and "warning" to "".
+8. ALTERNATIVE FORMS: Only include if the word has a significantly different meaning when used as a different part of speech.
 
 Return a JSON with this exact structure:
 {
-  "normalizedWord": "the English word in base form",
+  "normalizedWord": "the word",
   "partOfSpeech": "verb" | "noun" | "adjective" | "adverb" | "preposition" | "conjunction" | "interjection",
-  "translation": "Portuguese translation",
+  "translation": "Portuguese translation(s)",
   "synonyms": [{"word": "synonym1", "type": "literal"}],
   "antonyms": [{"word": "antonym1", "type": "literal"}],
   "example": "Example sentence.",
   "alternativeForms": [],
+  "verbType": "regular" | "irregular" | null,
+  "falseCognate": {
+    "isFalseCognate": boolean,
+    "warning": "Warning message"
+  },
   "conjugations": {
     "simplePresent": "runs",
     "simplePast": "ran",
@@ -94,7 +138,7 @@ If the word is not a verb, return "conjugations" as null.`,
     },
   ]
 
-  return callOpenAI<FlashcardAIResponse>(apiKey, messages, {
+  return callOpenAI<FlashcardAIResponse>(apiKey, messages, model, {
     type: "json_object",
   })
 }
@@ -103,6 +147,7 @@ export async function generateGrammarExercises(
   apiKey: string,
   flashcards: Flashcard[],
   exerciseType: "fill-blank" | "verb-conjugation" | "mixed",
+  model: string = "gpt-4o-mini",
   count: number = 5
 ): Promise<GrammarExercise[]> {
   const words = flashcards.map((f) => f.word).join(", ")
@@ -146,6 +191,7 @@ Create ${count} exercises. Make sentences natural and educational.`,
   const response = await callOpenAI<{ exercises: GrammarExercise[] }>(
     apiKey,
     messages,
+    model,
     { type: "json_object" }
   )
 

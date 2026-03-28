@@ -34,6 +34,11 @@ export interface Flashcard {
     presentPerfect: string
     pastPerfect: string
   }
+  verbType?: "regular" | "irregular"
+  falseCognate?: {
+    isFalseCognate: boolean
+    warning: string // Ex: "Não significa 'pretender', significa 'fingir'"
+  }
   folderId: string | null
   createdAt: number
 }
@@ -46,6 +51,11 @@ export interface FlashcardAIResponse {
   antonyms: ClassifiedWord[]
   example: string
   alternativeForms: AlternativeForm[]
+  verbType?: "regular" | "irregular"
+  falseCognate?: {
+    isFalseCognate: boolean
+    warning: string
+  }
   conjugations?: {
     simplePresent: string
     simplePast: string

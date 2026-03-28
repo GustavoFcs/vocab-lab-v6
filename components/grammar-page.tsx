@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useApiKey } from "@/hooks/use-api-key"
+import { useGptModel } from "@/hooks/use-gpt-model"
 import { useFlashcardsDB } from "@/hooks/use-flashcards-db"
 import { useGrammarProgress } from "@/hooks/use-grammar-progress"
 import { generateGrammarExercises } from "@/lib/openai"
@@ -30,6 +31,7 @@ import type { GrammarExercise } from "@/lib/types"
 
 export function GrammarPage() {
   const { apiKey, hasApiKey } = useApiKey()
+  const { model } = useGptModel()
   const { allFlashcards: flashcards, isLoading: isLoadingCards } = useFlashcardsDB()
   const { saveGrammarSession, getGrammarStats, isLoaded: isProgressLoaded } = useGrammarProgress()
   const [exercises, setExercises] = useState<GrammarExercise[]>([])
@@ -60,6 +62,7 @@ export function GrammarPage() {
         apiKey,
         selectedCards,
         exerciseType,
+        model,
         5
       )
       setExercises(newExercises)

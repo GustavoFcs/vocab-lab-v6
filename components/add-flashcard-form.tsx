@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { useApiKey } from "@/hooks/use-api-key"
+import { useGptModel } from "@/hooks/use-gpt-model"
 import { generateFlashcardData } from "@/lib/openai"
 import type { Flashcard } from "@/lib/types"
 
@@ -15,6 +16,7 @@ interface AddFlashcardFormProps {
 
 export function AddFlashcardForm({ onAdd }: AddFlashcardFormProps) {
   const { apiKey, hasApiKey } = useApiKey()
+  const { model } = useGptModel()
   const [word, setWord] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -27,7 +29,7 @@ export function AddFlashcardForm({ onAdd }: AddFlashcardFormProps) {
     setError(null)
 
     try {
-      const data = await generateFlashcardData(apiKey, word.trim())
+      const data = await generateFlashcardData(apiKey, word.trim(), model)
 
       const flashcard: Flashcard = {
         id: crypto.randomUUID(),
@@ -39,6 +41,8 @@ export function AddFlashcardForm({ onAdd }: AddFlashcardFormProps) {
         example: data.example,
         alternativeForms: data.alternativeForms || [],
         conjugations: data.conjugations,
+        verbType: data.verbType,
+        falseCognate: data.falseCognate,
         folderId: null,
         createdAt: Date.now(),
       }
