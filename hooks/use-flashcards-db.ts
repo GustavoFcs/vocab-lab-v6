@@ -7,6 +7,14 @@ const DB_NAME = "vocab-lab-db"
 const DB_VERSION = 4
 const FLASHCARDS_STORE = "flashcards"
 const FOLDERS_STORE = "folders"
+const FLASHCARDS_UPDATED_EVENT = "vocablab-flashcards-updated"
+
+function notifyFlashcardsUpdated() {
+  if (typeof window === "undefined") return
+  window.setTimeout(() => {
+    window.dispatchEvent(new Event(FLASHCARDS_UPDATED_EVENT))
+  }, 0)
+}
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -132,6 +140,12 @@ export function useFlashcardsDB() {
     loadData()
   }, [loadData])
 
+  useEffect(() => {
+    const onUpdated = () => loadData()
+    window.addEventListener(FLASHCARDS_UPDATED_EVENT, onUpdated)
+    return () => window.removeEventListener(FLASHCARDS_UPDATED_EVENT, onUpdated)
+  }, [loadData])
+
   // Folder operations
   const addFolder = useCallback(async (name: string): Promise<Folder | null> => {
     try {
@@ -150,6 +164,7 @@ export function useFlashcardsDB() {
 
         request.onsuccess = () => {
           setFolders((prev) => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)))
+          notifyFlashcardsUpdated()
           resolve(folder)
         }
 
@@ -193,6 +208,7 @@ export function useFlashcardsDB() {
           if (selectedFolderId === id) {
             setSelectedFolderId(null)
           }
+          notifyFlashcardsUpdated()
           resolve(true)
         }
 
@@ -234,6 +250,7 @@ export function useFlashcardsDB() {
 
             request.onsuccess = () => {
               setFlashcards((prev) => [flashcardWithFolder, ...prev])
+              notifyFlashcardsUpdated()
               resolve(true)
             }
 
@@ -263,6 +280,7 @@ export function useFlashcardsDB() {
 
         request.onsuccess = () => {
           setFlashcards((prev) => prev.filter((card) => card.id !== id))
+          notifyFlashcardsUpdated()
           resolve(true)
         }
 
@@ -273,6 +291,42 @@ export function useFlashcardsDB() {
       })
     } catch (error) {
       console.error("Error deleting flashcard:", error)
+      return false
+    }
+  }, [])
+
+  const updateFlashcard = useCallback(async (flashcard: Flashcard): Promise<boolean> => {
+    try {
+      const db = await openDatabase()
+      const transaction = db.transaction(FLASHCARDS_STORE, "readwrite")
+      const store = transaction.objectStore(FLASHCARDS_STORE)
+
+      return new Promise((resolve) => {
+        const index = store.index("word_pos")
+        const key = [flashcard.word, flashcard.partOfSpeech]
+        const checkRequest = index.get(key)
+
+        checkRequest.onsuccess = () => {
+          const existing = checkRequest.result as Flashcard | undefined
+          if (existing && existing.id !== flashcard.id) {
+            resolve(false)
+            return
+          }
+
+          const request = store.put(flashcard)
+
+          request.onsuccess = () => {
+            setFlashcards((prev) => prev.map((c) => (c.id === flashcard.id ? flashcard : c)))
+            notifyFlashcardsUpdated()
+            resolve(true)
+          }
+
+          request.onerror = () => resolve(false)
+        }
+
+        checkRequest.onerror = () => resolve(false)
+      })
+    } catch {
       return false
     }
   }, [])
@@ -295,6 +349,7 @@ export function useFlashcardsDB() {
           setFlashcards((prev) => prev.map(card => 
             card.id === flashcardId ? updatedFlashcard : card
           ))
+          notifyFlashcardsUpdated()
           resolve(true)
         }
 
@@ -317,6 +372,82 @@ export function useFlashcardsDB() {
     [flashcards]
   )
 
+  const importAllData = useCallback(async (data: { flashcards: Flashcard[]; folders: Folder[] }): Promise<boolean> => {
+    try {
+      const db = await openDatabase()
+      const tx = db.transaction([FLASHCARDS_STORE, FOLDERS_STORE], "readwrite")
+      const flashcardsStore = tx.objectStore(FLASHCARDS_STORE)
+      const foldersStore = tx.objectStore(FOLDERS_STORE)
+
+      const safeFolders = (data.folders || [])
+        .filter((f) => f && typeof f.id === "string" && typeof f.name === "string")
+        .map((f) => ({
+          id: f.id,
+          name: f.name,
+          createdAt: typeof f.createdAt === "number" ? f.createdAt : Date.now(),
+        }))
+
+      const folderIds = new Set(safeFolders.map((f) => f.id))
+
+      const dedup = new Map<string, Flashcard>()
+      for (const card of data.flashcards || []) {
+        if (!card || typeof card.id !== "string") continue
+        const word = String(card.word ?? "").toLowerCase()
+        const pos = String(card.partOfSpeech ?? "")
+        if (!word || !pos) continue
+
+        const createdAt = typeof card.createdAt === "number" ? card.createdAt : Date.now()
+        const folderId = card.folderId && folderIds.has(card.folderId) ? card.folderId : null
+        const key = `${word}__${pos}`
+
+        const normalized: Flashcard = {
+          ...card,
+          word,
+          folderId,
+          createdAt,
+        }
+
+        const prev = dedup.get(key)
+        if (!prev || (prev.createdAt ?? 0) < createdAt) {
+          dedup.set(key, normalized)
+        }
+      }
+
+      const safeCards = Array.from(dedup.values())
+
+      return await new Promise<boolean>((resolve) => {
+        const clearFolders = foldersStore.clear()
+        clearFolders.onerror = () => resolve(false)
+        clearFolders.onsuccess = () => {
+          const clearCards = flashcardsStore.clear()
+          clearCards.onerror = () => resolve(false)
+          clearCards.onsuccess = () => {
+            for (const f of safeFolders) {
+              foldersStore.put(f)
+            }
+            for (const c of safeCards) {
+              flashcardsStore.put(c)
+            }
+          }
+        }
+
+        tx.oncomplete = () => {
+          safeFolders.sort((a, b) => a.name.localeCompare(b.name))
+          safeCards.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+          setFolders(safeFolders)
+          setFlashcards(safeCards)
+          setSelectedFolderId(null)
+          notifyFlashcardsUpdated()
+          resolve(true)
+        }
+        tx.onerror = () => resolve(false)
+        tx.onabort = () => resolve(false)
+      })
+    } catch {
+      return false
+    }
+  }, [])
+
   const filteredFlashcards = selectedFolderId
     ? flashcards.filter(f => f.folderId === selectedFolderId)
     : flashcards
@@ -330,10 +461,12 @@ export function useFlashcardsDB() {
     isLoading,
     addFlashcard,
     deleteFlashcard,
+    updateFlashcard,
     moveFlashcardToFolder,
     addFolder,
     deleteFolder,
     getRandomFlashcards,
+    importAllData,
     refresh: loadData,
   }
 }

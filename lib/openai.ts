@@ -88,6 +88,24 @@ export interface GenerateFlashcardOptions {
   targetPartOfSpeech?: string
 }
 
+export interface FlashcardRevisionResponse {
+  translation: string
+  usageNote: string
+  synonyms: { word: string; type: "literal" | "figurative" | "slang" | "abstract" }[]
+  antonyms: { word: string; type: "literal" | "figurative" | "slang" | "abstract" }[]
+  example: string
+  alternativeForms: {
+    word: string
+    partOfSpeech: string
+    translation: string
+    example: string
+  }[]
+  falseCognate: {
+    isFalseCognate: boolean
+    warning: string
+  }
+}
+
 export async function generateFlashcardData(
   apiKey: string,
   word: string,
@@ -214,6 +232,98 @@ If the word is not a verb, return "conjugations" as null.`,
   return callOpenAI<FlashcardAIResponse>(apiKey, messages, model, {
     type: "json_object",
   })
+}
+
+export async function reviseFlashcardByTranslation(
+  apiKey: string,
+  input: {
+    word: string
+    partOfSpeech: string
+    translation: string
+    efommMode?: boolean
+    synonymsLevel?: number
+    includeAlternativeForms?: boolean
+    includeUsageNote?: boolean
+  },
+  model: string = "gpt-4o-mini"
+): Promise<FlashcardRevisionResponse> {
+  const synonymsLevel = Math.max(0, Math.min(3, input.synonymsLevel ?? 2))
+  const includeAlternativeForms = input.includeAlternativeForms ?? true
+  const includeUsageNote = input.includeUsageNote ?? true
+  const efommMode = input.efommMode ?? false
+
+  const synonymsInstruction =
+    synonymsLevel === 0
+      ? `Do NOT generate synonyms or antonyms. Return "synonyms": [] and "antonyms": [].`
+      : `Provide up to ${synonymsLevel} synonyms and up to ${synonymsLevel} antonyms that match the EXACT meaning implied by the translation.`
+
+  const usageNoteInstruction = includeUsageNote
+    ? `If needed, provide a short "usageNote" in Brazilian Portuguese. If not needed, return "" in "usageNote".`
+    : `Always return "usageNote": "" .`
+
+  const alternativeFormsInstruction = includeAlternativeForms
+    ? `If relevant, include up to 2 alternative forms with correct English "word", their part of speech, Portuguese translation (use article for nouns), and an example sentence. Avoid meta-definitions like "o ato de...".`
+    : `Always return "alternativeForms": [].`
+
+  const efommInstruction = efommMode
+    ? `EFOMM MODE (MARITIME): Prefer maritime/naval/port/shipping/logistics meanings and examples whenever plausible. If it changes the meaning vs everyday usage, briefly clarify it in "usageNote". Otherwise, do not mention maritime context explicitly.`
+    : ``
+
+  const messages: OpenAIMessage[] = [
+    {
+      role: "system",
+      content: `You are a senior American English teacher specializing in teaching Brazilian Portuguese speakers.
+Your base of knowledge is strictly AMERICAN ENGLISH.
+
+${efommInstruction}
+
+You will receive:
+- an English word
+- a fixed part of speech
+- a NEW Portuguese translation chosen by the user
+
+Your task:
+- Keep the same English word and the same part of speech.
+- Make all the other fields consistent with the new translation/sense.
+
+Rules:
+- Translation must be returned exactly as provided by the user (trimmed).
+- For nouns, prefer using an article in Portuguese when helpful ("a proa", "o porto", etc.).
+- Avoid meta-definitions like "o ato de..." for nouns unless that is truly the primary meaning and no natural noun translation exists.
+- Synonyms/antonyms MUST include a type: "literal" | "figurative" | "slang".
+  * literal: physical/direct denotation
+  * figurative: metaphor/metaphorical/abstract sense
+  * slang: very informal/idiomatic
+- Fidelity: Only list synonyms/antonyms that fit this exact sense. Avoid lazy generic words unless truly best match.
+
+Synonyms/antonyms instruction: ${synonymsInstruction}
+Usage note instruction: ${usageNoteInstruction}
+Alternative forms instruction: ${alternativeFormsInstruction}
+
+Also re-check false cognate status for Portuguese speakers and return "falseCognate" accordingly.
+
+Return JSON with this exact structure:
+{
+  "translation": "Portuguese translation",
+  "usageNote": "string",
+  "synonyms": [{"word": "x", "type": "literal" | "figurative" | "slang"}],
+  "antonyms": [{"word": "y", "type": "literal" | "figurative" | "slang"}],
+  "example": "American English example sentence matching this sense",
+  "alternativeForms": [{"word": "form", "partOfSpeech": "noun", "translation": "a ...", "example": "..." }],
+  "falseCognate": {"isFalseCognate": boolean, "warning": "string"}
+}`,
+    },
+    {
+      role: "user",
+      content: JSON.stringify({
+        word: input.word,
+        partOfSpeech: input.partOfSpeech,
+        newTranslation: input.translation,
+      }),
+    },
+  ]
+
+  return callOpenAI<FlashcardRevisionResponse>(apiKey, messages, model, { type: "json_object" })
 }
 
 export async function generateGrammarExercises(

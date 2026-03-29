@@ -53,6 +53,7 @@ export function FlashcardsPage() {
     isLoading, 
     addFlashcard, 
     deleteFlashcard,
+    updateFlashcard,
     addFolder,
     deleteFolder,
   } = useFlashcardsDB()
@@ -511,6 +512,7 @@ export function FlashcardsPage() {
                 flashcard={flashcard}
                 onDelete={deleteFlashcard}
                 onCreateFromAlternative={createCardFromAlternative}
+                onUpdateFlashcard={updateFlashcard}
                 layout={layout}
               />
             ))}

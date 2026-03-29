@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Trash2, RotateCcw, Volume2, AlertTriangle } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Trash2, RotateCcw, Volume2, AlertTriangle, Pencil, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -9,11 +9,25 @@ import { Card } from "@/components/ui/card"
 import type { Flashcard, ClassifiedWord, PartOfSpeech, AlternativeForm } from "@/lib/types"
 import { useAnimations } from "@/hooks/use-animations"
 import { useAiPreferences } from "@/hooks/use-ai-preferences"
+import { useApiKey } from "@/hooks/use-api-key"
+import { useGptModel } from "@/hooks/use-gpt-model"
+import { toast } from "@/hooks/use-toast"
+import { reviseFlashcardByTranslation } from "@/lib/openai"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 
 interface FlashcardCardProps {
   flashcard: Flashcard
   onDelete?: (id: string) => void
   onCreateFromAlternative?: (base: Flashcard, form: AlternativeForm) => void
+  onUpdateFlashcard?: (flashcard: Flashcard) => Promise<boolean>
   layout?: "grid" | "list" | "compact"
 }
 
@@ -86,11 +100,16 @@ function ClassifiedWordList({
   )
 }
 
-export function FlashcardCard({ flashcard, onDelete, onCreateFromAlternative, layout = "grid" }: FlashcardCardProps) {
+export function FlashcardCard({ flashcard, onDelete, onCreateFromAlternative, onUpdateFlashcard, layout = "grid" }: FlashcardCardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
   const [showConjugations, setShowConjugations] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [translationDraft, setTranslationDraft] = useState("")
+  const [editBusy, setEditBusy] = useState(false)
   const { enabled: animationsEnabled } = useAnimations()
-  const { synonymsLevel, includeConjugations, includeAlternativeForms, includeUsageNote } = useAiPreferences()
+  const { synonymsLevel, includeConjugations, includeAlternativeForms, includeUsageNote, efommMode } = useAiPreferences()
+  const { apiKey, hasApiKey } = useApiKey()
+  const { model } = useGptModel()
 
   const speak = (text: string) => {
     const utterance = new SpeechSynthesisUtterance(text)
@@ -105,6 +124,85 @@ export function FlashcardCard({ flashcard, onDelete, onCreateFromAlternative, la
       )
     : []
 
+  useEffect(() => {
+    if (editOpen) {
+      setTranslationDraft(flashcard.translation || "")
+    }
+  }, [editOpen, flashcard.translation])
+
+  const submitTranslationEdit = async () => {
+    const nextTranslation = translationDraft.trim()
+    if (!nextTranslation) return
+    if (!hasApiKey || !apiKey) {
+      toast({
+        title: "API Key necessária",
+        description: "Configure sua chave da OpenAI nas configurações.",
+        variant: "destructive",
+      })
+      return
+    }
+    if (!onUpdateFlashcard) {
+      toast({
+        title: "Não foi possível salvar",
+        description: "Atualização do card não está disponível nesta tela.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setEditBusy(true)
+    const t = toast({
+      title: "Reanalisando card…",
+      description: `${flashcard.word} → ${nextTranslation}`,
+    })
+
+    try {
+      const revised = await reviseFlashcardByTranslation(
+        apiKey,
+        {
+          word: flashcard.word,
+          partOfSpeech: flashcard.partOfSpeech,
+          translation: nextTranslation,
+          efommMode,
+          synonymsLevel,
+          includeAlternativeForms,
+          includeUsageNote,
+        },
+        model
+      )
+
+      const updated: Flashcard = {
+        ...flashcard,
+        translation: revised.translation,
+        usageNote: revised.usageNote || "",
+        synonyms: revised.synonyms as any,
+        antonyms: revised.antonyms as any,
+        example: revised.example,
+        alternativeForms: revised.alternativeForms as any,
+        falseCognate: revised.falseCognate,
+      }
+
+      const ok = await onUpdateFlashcard(updated)
+      if (!ok) throw new Error("Falha ao atualizar o card no banco local.")
+
+      t.update({
+        id: t.id,
+        title: "Card atualizado",
+        description: "Tradução e conteúdo foram recalculados.",
+      })
+      setEditOpen(false)
+    } catch (err) {
+      t.update({
+        id: t.id,
+        title: "Erro ao atualizar",
+        description: err instanceof Error ? err.message : "Erro desconhecido",
+        variant: "destructive",
+      })
+    } finally {
+      setEditBusy(false)
+    }
+  }
+
   // List Layout
   if (layout === "list") {
     return (
@@ -113,9 +211,20 @@ export function FlashcardCard({ flashcard, onDelete, onCreateFromAlternative, la
           <h3 className="text-lg font-bold text-foreground leading-tight truncate">
             {flashcard.word}
           </h3>
-          <p className="text-sm text-muted-foreground truncate">
-            {flashcard.translation}
-          </p>
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="text-sm text-muted-foreground truncate flex-1">
+              {flashcard.translation}
+            </p>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 shrink-0"
+              onClick={() => setEditOpen(true)}
+              title="Editar tradução"
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center justify-end gap-3 shrink-0">
@@ -358,9 +467,23 @@ export function FlashcardCard({ flashcard, onDelete, onCreateFromAlternative, la
           </div>
 
           <div className="space-y-2.5 flex-1 overflow-y-auto pr-1">
-            <p className="text-xl font-semibold text-foreground">
-              {flashcard.translation}
-            </p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xl font-semibold text-foreground leading-snug">
+                {flashcard.translation}
+              </p>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8 shrink-0"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setEditOpen(true)
+                }}
+                title="Editar tradução"
+              >
+                <Pencil className="size-4" />
+              </Button>
+            </div>
             {includeUsageNote && !!flashcard.usageNote && (
               <div className="bg-muted/30 border border-border/40 rounded-lg p-2">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
@@ -489,6 +612,43 @@ export function FlashcardCard({ flashcard, onDelete, onCreateFromAlternative, la
           </div>
         </div>
       </div>
+
+      <Dialog open={editOpen} onOpenChange={(o) => !editBusy && setEditOpen(o)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar tradução</DialogTitle>
+            <DialogDescription>
+              Ao salvar, a IA recalcula sinônimos, antônimos, exemplo, contexto e outras formas para condizer com a nova tradução.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              {flashcard.word} ({flashcard.partOfSpeech})
+            </p>
+            <Input
+              value={translationDraft}
+              onChange={(e) => setTranslationDraft(e.target.value)}
+              placeholder="Ex: a bebida"
+              disabled={editBusy}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={editBusy}>
+              Cancelar
+            </Button>
+            <Button onClick={submitTranslationEdit} disabled={editBusy || !translationDraft.trim()}>
+              {editBusy ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Salvando…
+                </>
+              ) : (
+                "Salvar e reanalisar"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
