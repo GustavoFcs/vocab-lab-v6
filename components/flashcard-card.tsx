@@ -58,23 +58,29 @@ function ClassifiedWordList({
         {label}:
       </span>
       <div className="flex flex-wrap gap-1.5">
-        {visible.map((item, idx) => (
-          <Badge
-            key={idx}
-            variant="outline"
-            className={cn(
-              "text-[10px] font-medium py-0 px-2 h-5 border-0",
-              item.type === "literal" 
-                ? "bg-blue-500/10 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300" 
+        {visible.map((item, idx) => {
+          const t = item.type === "abstract" ? "figurative" : item.type
+          const tag = t === "literal" ? "lit" : t === "slang" ? "slng" : "fig"
+          const tone =
+            t === "literal"
+              ? "bg-blue-500/10 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
+              : t === "slang"
+                ? "bg-amber-500/10 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200"
                 : "bg-purple-500/10 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300"
-            )}
-          >
-            {item.word}
-            <span className="ml-1 opacity-50 text-[8px] font-normal">
-              ({item.type === "literal" ? "lit" : "abs"})
-            </span>
-          </Badge>
-        ))}
+
+          return (
+            <Badge
+              key={idx}
+              variant="outline"
+              className={cn("text-[10px] font-medium py-0 px-2 h-5 border-0", tone)}
+            >
+              {item.word}
+              <span className="ml-1 opacity-50 text-[8px] font-normal">
+                ({tag})
+              </span>
+            </Badge>
+          )
+        })}
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 export interface ClassifiedWord {
   word: string
-  type: "literal" | "abstract"
+  type: "literal" | "figurative" | "slang" | "abstract"
 }
 
 export type PartOfSpeech = "verb" | "noun" | "adjective" | "adverb" | "preposition" | "conjunction" | "interjection"

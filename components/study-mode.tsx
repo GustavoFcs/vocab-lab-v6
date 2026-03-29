@@ -48,22 +48,24 @@ function ClassifiedWordList({ words, label, maxCount }: { words: ClassifiedWord[
     <div className="space-y-1.5">
       <span className="text-[10px] font-bold text-muted-foreground dark:text-white/40 uppercase tracking-widest">{label}</span>
       <div className="flex flex-wrap gap-1.5">
-        {visible.map((item, idx) => (
-          <Badge
-            key={idx}
-            className={cn(
-              "text-xs font-medium border-0 py-0.5 px-2",
-              item.type === "literal"
-                ? "bg-blue-500/10 text-blue-700 dark:bg-blue-500/30 dark:text-blue-100"
+        {visible.map((item, idx) => {
+          const t = item.type === "abstract" ? "figurative" : item.type
+          const tag = t === "literal" ? "lit" : t === "slang" ? "slng" : "fig"
+          const tone =
+            t === "literal"
+              ? "bg-blue-500/10 text-blue-700 dark:bg-blue-500/30 dark:text-blue-100"
+              : t === "slang"
+                ? "bg-amber-500/10 text-amber-800 dark:bg-amber-500/30 dark:text-amber-100"
                 : "bg-purple-500/10 text-purple-700 dark:bg-purple-500/30 dark:text-purple-100"
-            )}
-          >
-            {item.word}
-            <span className="ml-1 opacity-50 text-[9px] font-normal">
-              ({item.type === "literal" ? "lit" : "abs"})
-            </span>
-          </Badge>
-        ))}
+          return (
+            <Badge key={idx} className={cn("text-xs font-medium border-0 py-0.5 px-2", tone)}>
+              {item.word}
+              <span className="ml-1 opacity-50 text-[9px] font-normal">
+                ({tag})
+              </span>
+            </Badge>
+          )
+        })}
       </div>
     </div>
   )

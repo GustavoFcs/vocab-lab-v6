@@ -55,8 +55,8 @@ export interface FlashcardAIResponse {
   partOfSpeech: string
   translation: string
   usageNote?: string
-  synonyms: { word: string; type: "literal" | "abstract" }[]
-  antonyms: { word: string; type: "literal" | "abstract" }[]
+  synonyms: { word: string; type: "literal" | "figurative" | "slang" | "abstract" }[]
+  antonyms: { word: string; type: "literal" | "figurative" | "slang" | "abstract" }[]
   example: string
   alternativeForms: {
     word: string
@@ -106,7 +106,14 @@ export async function generateFlashcardData(
   const synonymsInstruction =
     synonymsLevel === 0
       ? `4. Do NOT generate synonyms or antonyms. Return "synonyms": [] and "antonyms": [].`
-      : `4. English synonyms and antonyms. Provide up to ${synonymsLevel} synonyms and up to ${synonymsLevel} antonyms that are highly relevant in American English. If none exist, return [].`
+      : `4. SYNONYMS & ANTONYMS (American English): Provide up to ${synonymsLevel} synonyms and up to ${synonymsLevel} antonyms that match the EXACT sense of the card (same part of speech + same meaning). If none exist, return [].
+   - Every synonym/antonym MUST include a type: "literal" | "figurative" | "slang".
+     * literal: physical action / concrete object / direct denotation
+     * figurative: metaphorical/abstract usage (not physical)
+     * slang: very informal / colloquial / idiomatic expression
+   - Fidelity to context: do not include items that fit a different sense (e.g., if "drink" means social alcohol, don't include "hydrate").
+   - Exclusion: avoid lazy/generic words ("get", "do", "go") unless they are truly the best match.
+   - Antonyms: prefer relational/direct opposites of the intended meaning (e.g., for "go drinking" prefer "stay sober" / "abstain").`
 
   const conjugationsInstruction = includeConjugations
     ? `6. If the part of speech is "verb", provide its conjugation in these 6 English tenses: Simple Present (3rd person singular), Simple Past, Present Continuous, Past Continuous, Present Perfect, and Past Perfect. Also, identify if it is "regular" or "irregular".`
@@ -117,7 +124,13 @@ export async function generateFlashcardData(
     : `3b. USAGE NOTE: Do NOT generate usage notes. Always return "usageNote": "" .`
 
   const alternativeFormsInstruction = includeAlternativeForms
-    ? `8. ALTERNATIVE FORMS: If the word is commonly used as another part of speech in American English (e.g., noun and verb), include up to 2 alternative forms. IMPORTANT: For each alternative form, provide the correct English word/form in "word" (e.g., "elevation" for the noun, "elevated" for the adjective), plus its Portuguese translation (include the article if it is a noun, e.g., "a elevação") and an example sentence using that exact English form. Do not repeat the primary part of speech.`
+    ? `8. ALTERNATIVE FORMS: If the word is commonly used as another part of speech in American English (e.g., noun and verb), include up to 2 alternative forms, ONLY when the meaning is commonly used and significantly different from the primary meaning (not just a grammatical rephrase).
+IMPORTANT:
+   - For each alternative form, provide the correct English word/form in "word" (e.g., "elevation" for the noun, "elevated" for the adjective).
+   - Provide a concise Portuguese translation (include the article if it is a noun, e.g., "a elevação").
+   - Avoid meta-definitions like "o ato de..." for alternative noun forms. If the best you can do is an "act of ..." explanation, then DO NOT include that alternative form.
+   - Provide an example sentence using that exact English form.
+Do not repeat the primary part of speech.`
     : `8. ALTERNATIVE FORMS: Do NOT generate alternative forms. Always return "alternativeForms": [].`
 
   const efommInstruction = efommMode
@@ -146,6 +159,7 @@ When given an English word, perform these steps:
 3. Portuguese translation (Brazilian Portuguese). Provide exactly 1 or 2 most common and accurate translations in Portuguese, separated by slashes.
    - Prefer a neutral, standard translation (no slang, no overly informal phrasing).
    - IMPORTANT (articles): If the part of speech is "noun", include the most natural Portuguese article with the translation when it improves clarity (e.g., "a proa", "o porto", "a âncora"). Use "o/a" for singular and "os/as" for plural when appropriate.
+   - IMPORTANT (avoid meta-definitions): Do NOT translate nouns as explanations like "o ato de ..." / "a ação de ..." / "o processo de ..." unless the noun's primary meaning in American English truly is that action/process AND there is no more natural noun translation. Prefer concise noun translations (e.g., for the noun "drink" prefer "a bebida" rather than "o ato de beber").
    - Avoid overly specific/contextual translations unless it's the primary meaning (e.g., do NOT default to "encontro romântico" for "date"; only include it if the primary meaning is clearly romantic date in American English for the given part of speech).
    - If two translations would be near-synonyms or essentially the same meaning (e.g., "beber / tomar" for "drink"), choose ONLY the most natural/pleasant one and return a single translation.
    - Example for "Fabric": "tecido / pano" (only if both are truly distinct/common).
@@ -167,8 +181,8 @@ Return a JSON with this exact structure:
   "partOfSpeech": "verb" | "noun" | "adjective" | "adverb" | "preposition" | "conjunction" | "interjection",
   "translation": "Portuguese translation(s)",
   "usageNote": "optional short note in Portuguese, or empty string",
-  "synonyms": [{"word": "synonym1", "type": "literal"}],
-  "antonyms": [{"word": "antonym1", "type": "literal"}],
+  "synonyms": [{"word": "synonym1", "type": "literal" | "figurative" | "slang"}],
+  "antonyms": [{"word": "antonym1", "type": "literal" | "figurative" | "slang"}],
   "example": "Example sentence.",
   "alternativeForms": [{"word": "elevation", "partOfSpeech": "noun", "translation": "elevação", "example": "The elevation is 2,000 meters."}],
   "verbType": "regular" | "irregular" | null,
