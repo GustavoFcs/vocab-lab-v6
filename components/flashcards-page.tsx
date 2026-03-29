@@ -4,6 +4,9 @@ import { useState } from "react"
 import { BookOpen, Loader2, FolderPlus, Folder, FolderOpen, X, GraduationCap, TrendingUp, Target, Calendar, AlertTriangle, LayoutGrid, List, LayoutPanelTop, MoreVertical, Trash2 } from "lucide-react"
 import { useFlashcardsDB } from "@/hooks/use-flashcards-db"
 import { useGrammarProgress } from "@/hooks/use-grammar-progress"
+import { useApiKey } from "@/hooks/use-api-key"
+import { useGptModel } from "@/hooks/use-gpt-model"
+import { useAiPreferences } from "@/hooks/use-ai-preferences"
 import { AddFlashcardForm } from "./add-flashcard-form"
 import { FlashcardCard } from "./flashcard-card"
 import { StudyMode } from "./study-mode"
@@ -37,6 +40,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
+import { toast } from "@/hooks/use-toast"
+import { generateFlashcardData } from "@/lib/openai"
 import type { Flashcard } from "@/lib/types"
 
 export function FlashcardsPage() {
@@ -54,6 +59,15 @@ export function FlashcardsPage() {
   
   const { getStudyStats, isLoaded: isProgressLoaded, dismissReviewWord } = useGrammarProgress()
   const studyStats = getStudyStats()
+  const { apiKey, hasApiKey } = useApiKey()
+  const { model } = useGptModel()
+  const {
+    synonymsLevel,
+    includeConjugations,
+    includeAlternativeForms,
+    includeUsageNote,
+    efommMode,
+  } = useAiPreferences()
 
   const [newFolderName, setNewFolderName] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -75,6 +89,77 @@ export function FlashcardsPage() {
   const studyFolderName = selectedFolder?.name ?? "Todas as palavras"
   const effectiveStudyCards = studyCards ?? flashcards
   const visibleReviewWords = studyStats.wordsToReview
+
+  const createCardFromAlternative = async (base: Flashcard, form: Flashcard["alternativeForms"][number]) => {
+    if (!hasApiKey || !apiKey) {
+      toast({
+        title: "API Key necessária",
+        description: "Configure sua chave da OpenAI nas configurações para gerar novos cards.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const inputWord = form.word || base.word
+    const targetPartOfSpeech = form.partOfSpeech
+
+    const t = toast({
+      title: "Gerando novo card…",
+      description: `${inputWord} (${targetPartOfSpeech})`,
+    })
+
+    try {
+      const data = await generateFlashcardData(apiKey, inputWord, model, {
+        synonymsLevel,
+        includeConjugations,
+        includeAlternativeForms,
+        includeUsageNote,
+        efommMode,
+        targetPartOfSpeech,
+      })
+
+      const flashcard: Flashcard = {
+        id: crypto.randomUUID(),
+        word: data.normalizedWord.toLowerCase(),
+        partOfSpeech: data.partOfSpeech,
+        translation: data.translation,
+        usageNote: data.usageNote || "",
+        synonyms: data.synonyms,
+        antonyms: data.antonyms,
+        example: data.example,
+        alternativeForms: data.alternativeForms || [],
+        conjugations: data.conjugations,
+        verbType: data.verbType,
+        falseCognate: data.falseCognate,
+        folderId: null,
+        createdAt: Date.now(),
+      }
+
+      const success = await addFlashcard(flashcard)
+      if (!success) {
+        t.update({
+          id: t.id,
+          title: "Já existe",
+          description: "Esse card já existe (mesma palavra e categoria).",
+          variant: "destructive",
+        })
+        return
+      }
+
+      t.update({
+        id: t.id,
+        title: "Card criado",
+        description: `${flashcard.word} (${flashcard.partOfSpeech})`,
+      })
+    } catch (err) {
+      t.update({
+        id: t.id,
+        title: "Erro ao gerar card",
+        description: err instanceof Error ? err.message : "Erro desconhecido",
+        variant: "destructive",
+      })
+    }
+  }
 
   if (isStudying && effectiveStudyCards.length > 0) {
     return (
@@ -425,6 +510,7 @@ export function FlashcardsPage() {
                 key={flashcard.id}
                 flashcard={flashcard}
                 onDelete={deleteFlashcard}
+                onCreateFromAlternative={createCardFromAlternative}
                 layout={layout}
               />
             ))}

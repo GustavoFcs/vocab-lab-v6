@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import type { Flashcard, Folder } from "@/lib/types"
 
 const DB_NAME = "vocab-lab-db"
-const DB_VERSION = 2
+const DB_VERSION = 4
 const FLASHCARDS_STORE = "flashcards"
 const FOLDERS_STORE = "folders"
 
@@ -20,9 +20,60 @@ function openDatabase(): Promise<IDBDatabase> {
       
       if (!db.objectStoreNames.contains(FLASHCARDS_STORE)) {
         const flashcardsStore = db.createObjectStore(FLASHCARDS_STORE, { keyPath: "id" })
-        flashcardsStore.createIndex("word", "word", { unique: true })
+        flashcardsStore.createIndex("word", "word", { unique: false })
+        flashcardsStore.createIndex("word_pos", ["word", "partOfSpeech"], { unique: true })
         flashcardsStore.createIndex("createdAt", "createdAt", { unique: false })
         flashcardsStore.createIndex("folderId", "folderId", { unique: false })
+      } else {
+        const transaction = (event.target as IDBOpenDBRequest).transaction
+        const flashcardsStore = transaction?.objectStore(FLASHCARDS_STORE)
+        if (flashcardsStore) {
+          const seen = new Map<string, { id: string; createdAt: number }>()
+          const cursorRequest = flashcardsStore.openCursor()
+
+          cursorRequest.onsuccess = () => {
+            const cursor = cursorRequest.result
+            if (cursor) {
+              const value = cursor.value as any
+              const word = String(value.word ?? "").toLowerCase()
+              const pos = String(value.partOfSpeech ?? "")
+              const createdAt = typeof value.createdAt === "number" ? value.createdAt : 0
+              const key = `${word}__${pos}`
+              const prev = seen.get(key)
+
+              if (!prev) {
+                seen.set(key, { id: value.id, createdAt })
+              } else {
+                if (createdAt > prev.createdAt) {
+                  flashcardsStore.delete(prev.id)
+                  seen.set(key, { id: value.id, createdAt })
+                } else {
+                  flashcardsStore.delete(value.id)
+                }
+              }
+
+              cursor.continue()
+              return
+            }
+
+            if (flashcardsStore.indexNames.contains("word_pos")) {
+              flashcardsStore.deleteIndex("word_pos")
+            }
+            if (flashcardsStore.indexNames.contains("word")) {
+              flashcardsStore.deleteIndex("word")
+            }
+
+            flashcardsStore.createIndex("word", "word", { unique: false })
+            flashcardsStore.createIndex("word_pos", ["word", "partOfSpeech"], { unique: true })
+
+            if (!flashcardsStore.indexNames.contains("createdAt")) {
+              flashcardsStore.createIndex("createdAt", "createdAt", { unique: false })
+            }
+            if (!flashcardsStore.indexNames.contains("folderId")) {
+              flashcardsStore.createIndex("folderId", "folderId", { unique: false })
+            }
+          }
+        }
       }
       
       if (!db.objectStoreNames.contains(FOLDERS_STORE)) {
@@ -170,17 +221,28 @@ export function useFlashcardsDB() {
         }
 
         return new Promise((resolve) => {
-          const request = store.add(flashcardWithFolder)
+          const index = store.index("word_pos")
+          const checkRequest = index.get([flashcardWithFolder.word, flashcardWithFolder.partOfSpeech])
 
-          request.onsuccess = () => {
-            setFlashcards((prev) => [flashcardWithFolder, ...prev])
-            resolve(true)
+          checkRequest.onsuccess = () => {
+            if (checkRequest.result) {
+              resolve(false)
+              return
+            }
+
+            const request = store.add(flashcardWithFolder)
+
+            request.onsuccess = () => {
+              setFlashcards((prev) => [flashcardWithFolder, ...prev])
+              resolve(true)
+            }
+
+            request.onerror = () => {
+              resolve(false)
+            }
           }
 
-          request.onerror = () => {
-            console.error("Error adding flashcard:", request.error)
-            resolve(false)
-          }
+          checkRequest.onerror = () => resolve(false)
         })
       } catch (error) {
         console.error("Error adding flashcard:", error)

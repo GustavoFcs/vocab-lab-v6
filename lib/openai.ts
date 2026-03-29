@@ -85,6 +85,7 @@ export interface GenerateFlashcardOptions {
   includeAlternativeForms?: boolean
   includeUsageNote?: boolean
   efommMode?: boolean
+  targetPartOfSpeech?: string
 }
 
 export async function generateFlashcardData(
@@ -98,6 +99,7 @@ export async function generateFlashcardData(
   const includeAlternativeForms = options?.includeAlternativeForms ?? true
   const includeUsageNote = options?.includeUsageNote ?? true
   const efommMode = options?.efommMode ?? false
+  const targetPartOfSpeech = options?.targetPartOfSpeech
 
   console.log(`[OpenAI] Calling ${model} for word: ${word}`)
 
@@ -115,7 +117,7 @@ export async function generateFlashcardData(
     : `3b. USAGE NOTE: Do NOT generate usage notes. Always return "usageNote": "" .`
 
   const alternativeFormsInstruction = includeAlternativeForms
-    ? `8. ALTERNATIVE FORMS: If the word is commonly used as another part of speech in American English (e.g., noun and verb), include up to 2 alternative forms. IMPORTANT: For each alternative form, provide the correct English word/form in "word" (e.g., "elevation" for the noun, "elevated" for the adjective), plus its Portuguese translation and an example sentence using that exact English form. Do not repeat the primary part of speech.`
+    ? `8. ALTERNATIVE FORMS: If the word is commonly used as another part of speech in American English (e.g., noun and verb), include up to 2 alternative forms. IMPORTANT: For each alternative form, provide the correct English word/form in "word" (e.g., "elevation" for the noun, "elevated" for the adjective), plus its Portuguese translation (include the article if it is a noun, e.g., "a elevação") and an example sentence using that exact English form. Do not repeat the primary part of speech.`
     : `8. ALTERNATIVE FORMS: Do NOT generate alternative forms. Always return "alternativeForms": [].`
 
   const efommInstruction = efommMode
@@ -133,10 +135,17 @@ Your base of knowledge is strictly AMERICAN ENGLISH.
 ${efommInstruction}
 
 When given an English word, perform these steps:
-1. If it's a verb in any form (e.g., "running", "ran", "lifts"), NORMALIZE it to its base form/infinitive (e.g., "run", "lift"). Return this in "normalizedWord".
+0. MORPHOLOGY (-ing): If the input ends with "-ing", decide whether it is:
+   - a VERBAL NOUN (noun) naming an object, system, established activity, or fixed process (e.g., "mooring", "rigging", "wiring"), or
+   - a GERUND / PRESENT PARTICIPLE (verb form) expressing an ongoing action.
+   Prefer "noun" when the -ing form commonly names an object/system/fixed process, especially in technical or maritime usage.
+1. Normalization:
+   - If you decided it is a verb form, NORMALIZE to its base form/infinitive (e.g., "running" → "run") and return it in "normalizedWord".
+   - If you decided it is a verbal noun, keep it as-is in "normalizedWord" and treat the primary part of speech as "noun".
 2. Its primary part of speech in American English.
 3. Portuguese translation (Brazilian Portuguese). Provide exactly 1 or 2 most common and accurate translations in Portuguese, separated by slashes.
    - Prefer a neutral, standard translation (no slang, no overly informal phrasing).
+   - IMPORTANT (articles): If the part of speech is "noun", include the most natural Portuguese article with the translation when it improves clarity (e.g., "a proa", "o porto", "a âncora"). Use "o/a" for singular and "os/as" for plural when appropriate.
    - Avoid overly specific/contextual translations unless it's the primary meaning (e.g., do NOT default to "encontro romântico" for "date"; only include it if the primary meaning is clearly romantic date in American English for the given part of speech).
    - If two translations would be near-synonyms or essentially the same meaning (e.g., "beber / tomar" for "drink"), choose ONLY the most natural/pleasant one and return a single translation.
    - Example for "Fabric": "tecido / pano" (only if both are truly distinct/common).
@@ -182,7 +191,9 @@ If the word is not a verb, return "conjugations" as null.`,
     },
     {
       role: "user",
-      content: `Generate flashcard data for the word/form: "${word}"`,
+      content: targetPartOfSpeech
+        ? `Generate flashcard data for the word/form: "${word}". IMPORTANT: Treat it as a "${targetPartOfSpeech}" usage and return "partOfSpeech" as "${targetPartOfSpeech}".`
+        : `Generate flashcard data for the word/form: "${word}"`,
     },
   ]
 

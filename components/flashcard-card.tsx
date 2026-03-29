@@ -6,13 +6,14 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
-import type { Flashcard, ClassifiedWord, PartOfSpeech } from "@/lib/types"
+import type { Flashcard, ClassifiedWord, PartOfSpeech, AlternativeForm } from "@/lib/types"
 import { useAnimations } from "@/hooks/use-animations"
 import { useAiPreferences } from "@/hooks/use-ai-preferences"
 
 interface FlashcardCardProps {
   flashcard: Flashcard
   onDelete?: (id: string) => void
+  onCreateFromAlternative?: (base: Flashcard, form: AlternativeForm) => void
   layout?: "grid" | "list" | "compact"
 }
 
@@ -79,7 +80,7 @@ function ClassifiedWordList({
   )
 }
 
-export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: FlashcardCardProps) {
+export function FlashcardCard({ flashcard, onDelete, onCreateFromAlternative, layout = "grid" }: FlashcardCardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
   const [showConjugations, setShowConjugations] = useState(false)
   const { enabled: animationsEnabled } = useAnimations()
@@ -208,32 +209,32 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
   // Compact Layout
   if (layout === "compact") {
     return (
-      <Card className="group relative overflow-hidden h-24 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setIsFlipped(!isFlipped)}>
+      <Card className="group relative overflow-hidden min-h-24 h-28 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setIsFlipped(!isFlipped)}>
         <div className={cn(
           "absolute inset-0 p-3 flex flex-col justify-between transition-all",
           animationsEnabled ? "duration-300" : "duration-0",
           isFlipped ? "opacity-0 translate-y-[-100%]" : "opacity-100 translate-y-0"
         )}>
           <div className="flex justify-between items-start gap-1">
-            <h3 className="font-bold text-base truncate pr-1 flex-1">{flashcard.word}</h3>
+            <h3 className="font-bold text-base truncate pr-1 flex-1 leading-snug">{flashcard.word}</h3>
             <div className="flex flex-col items-end gap-0.5 shrink-0">
-              <Badge className={cn("text-[8px] px-1 h-3.5", partOfSpeechColors[partOfSpeech])}>
+              <Badge className={cn("text-[9px] px-1.5 h-4 leading-none", partOfSpeechColors[partOfSpeech])}>
                 {partOfSpeechLabels[partOfSpeech].substring(0, 3)}.
               </Badge>
               {flashcard.verbType && (
-                <Badge variant="outline" className="text-[7px] px-1 h-3 border-primary/30 text-primary uppercase font-bold">
+                <Badge variant="outline" className="text-[8px] px-1.5 h-4 border-primary/30 text-primary uppercase font-bold leading-none">
                   {flashcard.verbType === "regular" ? "Reg" : "Irr"}
                 </Badge>
               )}
               {flashcard.falseCognate?.isFalseCognate && (
-                <Badge className="text-[7px] px-1 h-3 bg-amber-500 text-white border-0 font-bold uppercase shrink-0">
+                <Badge className="text-[8px] px-1.5 h-4 bg-amber-500 text-white border-0 font-bold uppercase shrink-0 leading-none">
                   Falso
                 </Badge>
               )}
             </div>
           </div>
-          <p className="text-xs text-muted-foreground truncate italic">
-            {flashcard.example.substring(0, 40)}...
+          <p className="text-xs text-muted-foreground italic leading-snug truncate">
+            {flashcard.example}
           </p>
         </div>
 
@@ -446,13 +447,20 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
                       <div className="flex items-center gap-2 mb-1">
                         <Badge 
                           variant="outline" 
-                          className={cn("text-[9px] h-4 font-bold uppercase tracking-tighter border-0", partOfSpeechColors[form.partOfSpeech])}
+                          className={cn(
+                            "text-[9px] h-4 font-bold uppercase tracking-tighter border-0 cursor-pointer hover:opacity-90",
+                            partOfSpeechColors[form.partOfSpeech]
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onCreateFromAlternative?.(flashcard, form)
+                          }}
                         >
                           {partOfSpeechLabels[form.partOfSpeech]}
                         </Badge>
                         <div className="flex flex-col leading-tight min-w-0">
                           <span className="text-xs font-bold text-foreground truncate">
-                            {(form as any).word || ""}
+                            {form.word || ""}
                           </span>
                           <span className="text-[10px] text-muted-foreground truncate">
                             {form.translation}
