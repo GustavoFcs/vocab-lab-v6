@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import type { Flashcard, ClassifiedWord, PartOfSpeech } from "@/lib/types"
 import { useAnimations } from "@/hooks/use-animations"
+import { useAiPreferences } from "@/hooks/use-ai-preferences"
 
 interface FlashcardCardProps {
   flashcard: Flashcard
@@ -37,12 +38,18 @@ const partOfSpeechColors: Record<PartOfSpeech, string> = {
 
 function ClassifiedWordList({ 
   words, 
-  label 
+  label,
+  maxCount,
 }: { 
   words: ClassifiedWord[]
-  label: string 
+  label: string
+  maxCount: number
 }) {
   if (!words || words.length === 0) return null
+  if (maxCount <= 0) return null
+
+  const visible = words.slice(0, maxCount)
+  if (visible.length === 0) return null
 
   return (
     <div className="space-y-1">
@@ -50,7 +57,7 @@ function ClassifiedWordList({
         {label}:
       </span>
       <div className="flex flex-wrap gap-1.5">
-        {words.map((item, idx) => (
+        {visible.map((item, idx) => (
           <Badge
             key={idx}
             variant="outline"
@@ -74,7 +81,9 @@ function ClassifiedWordList({
 
 export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: FlashcardCardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
+  const [showConjugations, setShowConjugations] = useState(false)
   const { enabled: animationsEnabled } = useAnimations()
+  const { synonymsLevel, includeConjugations, includeAlternativeForms, includeUsageNote } = useAiPreferences()
 
   const speak = (text: string) => {
     const utterance = new SpeechSynthesisUtterance(text)
@@ -83,42 +92,46 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
   }
 
   const partOfSpeech = flashcard.partOfSpeech || "noun"
-  const alternativeForms = (flashcard.alternativeForms || []).filter(f => f.translation && f.partOfSpeech)
+  const alternativeForms = includeAlternativeForms
+    ? (flashcard.alternativeForms || []).filter(
+        (f) => f.translation && f.partOfSpeech && f.partOfSpeech !== partOfSpeech
+      )
+    : []
 
   // List Layout
   if (layout === "list") {
     return (
-      <Card className="flex flex-col sm:flex-row items-center justify-between p-4 gap-4 hover:shadow-md transition-shadow">
-        <div className="flex items-center justify-between gap-4 flex-1">
-            <div className="flex items-center gap-2">
-              <Badge 
-                variant="outline" 
-                className={cn("text-[10px] h-5", partOfSpeechColors[partOfSpeech])}
-              >
-                {partOfSpeechLabels[partOfSpeech]}
-              </Badge>
-              {flashcard.verbType && (
-                <Badge variant="outline" className="text-[9px] uppercase tracking-wider border-primary/30 text-primary h-5">
-                  {flashcard.verbType}
-                </Badge>
-              )}
-              {flashcard.falseCognate?.isFalseCognate && (
-                <Badge className="text-[9px] px-1.5 h-4 bg-amber-500 hover:bg-amber-600 border-0 text-white font-bold uppercase tracking-tighter">
-                  Falso Cognato
-                </Badge>
-              )}
-            </div>
-            <div className="flex flex-col">
-            <h3 className="text-lg font-bold text-foreground leading-tight">
-              {flashcard.word}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {flashcard.translation}
-            </p>
-          </div>
+      <Card className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4 hover:shadow-md transition-shadow">
+        <div className="flex flex-col min-w-0 flex-1">
+          <h3 className="text-lg font-bold text-foreground leading-tight truncate">
+            {flashcard.word}
+          </h3>
+          <p className="text-sm text-muted-foreground truncate">
+            {flashcard.translation}
+          </p>
         </div>
-        
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center justify-end gap-3 shrink-0">
+          <div className="flex flex-wrap justify-end items-center gap-2">
+            <Badge
+              variant="outline"
+              className={cn("text-[10px] h-5", partOfSpeechColors[partOfSpeech])}
+            >
+              {partOfSpeechLabels[partOfSpeech]}
+            </Badge>
+            {flashcard.verbType && (
+              <Badge variant="outline" className="text-[9px] uppercase tracking-wider border-primary/30 text-primary h-5">
+                {flashcard.verbType}
+              </Badge>
+            )}
+            {flashcard.falseCognate?.isFalseCognate && (
+              <Badge className="text-[9px] px-1.5 h-4 bg-amber-500 hover:bg-amber-600 border-0 text-white font-bold uppercase tracking-tighter">
+                Falso Cognato
+              </Badge>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
@@ -145,6 +158,7 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
               <Trash2 className="size-4" />
             </Button>
           )}
+          </div>
         </div>
 
         {isFlipped && (
@@ -153,24 +167,36 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
             animationsEnabled ? "duration-300" : "duration-0"
           )}>
             <div className="space-y-2">
-              <ClassifiedWordList words={flashcard.synonyms} label="Sinônimos" />
-              <ClassifiedWordList words={flashcard.antonyms} label="Antônimos" />
+              <ClassifiedWordList words={flashcard.synonyms} label="Sinônimos" maxCount={synonymsLevel} />
+              <ClassifiedWordList words={flashcard.antonyms} label="Antônimos" maxCount={synonymsLevel} />
               <div>
                 <span className="text-xs font-medium text-muted-foreground">Exemplo:</span>
                 <p className="text-xs text-foreground italic">{flashcard.example}</p>
               </div>
             </div>
-            {flashcard.conjugations && (
+            {includeConjugations && flashcard.conjugations && (
               <div className="bg-primary/5 rounded-lg p-3">
-                <span className="text-[10px] font-bold text-primary/70 uppercase block mb-2">Verb Tenses</span>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
-                  <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Present</span><span className="truncate">{flashcard.conjugations.simplePresent}</span></div>
-                  <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Past</span><span className="truncate">{flashcard.conjugations.simplePast}</span></div>
-                  <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Pres. Cont.</span><span className="truncate">{flashcard.conjugations.presentContinuous}</span></div>
-                  <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Past Cont.</span><span className="truncate">{flashcard.conjugations.pastContinuous}</span></div>
-                  <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Pres. Perf.</span><span className="truncate">{flashcard.conjugations.presentPerfect}</span></div>
-                  <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Past Perf.</span><span className="truncate">{flashcard.conjugations.pastPerfect}</span></div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold text-primary/70 uppercase">Verb Tenses</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] font-bold text-primary hover:bg-primary/10 hover:text-primary"
+                    onClick={() => setShowConjugations((v) => !v)}
+                  >
+                    {showConjugations ? "Ocultar" : "Mostrar"}
+                  </Button>
                 </div>
+                {showConjugations && (
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+                    <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Present</span><span className="truncate">{flashcard.conjugations.simplePresent}</span></div>
+                    <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Past</span><span className="truncate">{flashcard.conjugations.simplePast}</span></div>
+                    <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Pres. Cont.</span><span className="truncate">{flashcard.conjugations.presentContinuous}</span></div>
+                    <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Past Cont.</span><span className="truncate">{flashcard.conjugations.pastContinuous}</span></div>
+                    <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Pres. Perf.</span><span className="truncate">{flashcard.conjugations.presentPerfect}</span></div>
+                    <div className="flex justify-between gap-2"><span className="opacity-60 shrink-0">Past Perf.</span><span className="truncate">{flashcard.conjugations.pastPerfect}</span></div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -328,9 +354,19 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
             <p className="text-xl font-semibold text-foreground">
               {flashcard.translation}
             </p>
+            {includeUsageNote && !!flashcard.usageNote && (
+              <div className="bg-muted/30 border border-border/40 rounded-lg p-2">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                  Contexto
+                </span>
+                <p className="text-xs text-foreground mt-1 leading-snug">
+                  {flashcard.usageNote}
+                </p>
+              </div>
+            )}
 
-            <ClassifiedWordList words={flashcard.synonyms} label="Sinônimos" />
-            <ClassifiedWordList words={flashcard.antonyms} label="Antônimos" />
+            <ClassifiedWordList words={flashcard.synonyms} label="Sinônimos" maxCount={synonymsLevel} />
+            <ClassifiedWordList words={flashcard.antonyms} label="Antônimos" maxCount={synonymsLevel} />
 
             <div>
               <span className="text-xs font-medium text-muted-foreground">
@@ -341,37 +377,52 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
               </p>
             </div>
 
-            {flashcard.conjugations && (
+            {includeConjugations && flashcard.conjugations && (
               <div className="pt-2 border-t border-border/50">
-                <span className="text-xs font-medium text-muted-foreground block mb-2">
-                  Verb Tenses:
-                </span>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px]">
-                  <div className="flex flex-col border-b border-border/20 pb-1">
-                    <span className="text-primary/70 uppercase font-bold text-[8px]">Simple Present</span>
-                    <span className="text-foreground/80 font-medium truncate">{flashcard.conjugations.simplePresent || "n/a"}</span>
-                  </div>
-                  <div className="flex flex-col border-b border-border/20 pb-1">
-                    <span className="text-primary/70 uppercase font-bold text-[8px]">Simple Past</span>
-                    <span className="text-foreground/80 font-medium truncate">{flashcard.conjugations.simplePast || "n/a"}</span>
-                  </div>
-                  <div className="flex flex-col border-b border-border/20 pb-1">
-                    <span className="text-primary/70 uppercase font-bold text-[8px]">Pres. Continuous</span>
-                    <span className="text-foreground/80 font-medium truncate">{flashcard.conjugations.presentContinuous || "n/a"}</span>
-                  </div>
-                  <div className="flex flex-col border-b border-border/20 pb-1">
-                    <span className="text-primary/70 uppercase font-bold text-[8px]">Past Continuous</span>
-                    <span className="text-foreground/80 font-medium truncate">{flashcard.conjugations.pastContinuous || "n/a"}</span>
-                  </div>
-                  <div className="flex flex-col border-b border-border/20 pb-1">
-                    <span className="text-primary/70 uppercase font-bold text-[8px]">Present Perfect</span>
-                    <span className="text-foreground/80 font-medium truncate">{flashcard.conjugations.presentPerfect || "n/a"}</span>
-                  </div>
-                  <div className="flex flex-col border-b border-border/20 pb-1">
-                    <span className="text-primary/70 uppercase font-bold text-[8px]">Past Perfect</span>
-                    <span className="text-foreground/80 font-medium truncate">{flashcard.conjugations.pastPerfect || "n/a"}</span>
-                  </div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    Verb Tenses:
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] font-bold text-primary hover:bg-primary/10 hover:text-primary"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowConjugations((v) => !v)
+                    }}
+                  >
+                    {showConjugations ? "Ocultar" : "Mostrar"}
+                  </Button>
                 </div>
+                {showConjugations && (
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px]">
+                    <div className="flex flex-col border-b border-border/20 pb-1">
+                      <span className="text-primary/70 uppercase font-bold text-[8px]">Simple Present</span>
+                      <span className="text-foreground/80 font-medium truncate">{flashcard.conjugations.simplePresent || "n/a"}</span>
+                    </div>
+                    <div className="flex flex-col border-b border-border/20 pb-1">
+                      <span className="text-primary/70 uppercase font-bold text-[8px]">Simple Past</span>
+                      <span className="text-foreground/80 font-medium truncate">{flashcard.conjugations.simplePast || "n/a"}</span>
+                    </div>
+                    <div className="flex flex-col border-b border-border/20 pb-1">
+                      <span className="text-primary/70 uppercase font-bold text-[8px]">Pres. Continuous</span>
+                      <span className="text-foreground/80 font-medium truncate">{flashcard.conjugations.presentContinuous || "n/a"}</span>
+                    </div>
+                    <div className="flex flex-col border-b border-border/20 pb-1">
+                      <span className="text-primary/70 uppercase font-bold text-[8px]">Past Continuous</span>
+                      <span className="text-foreground/80 font-medium truncate">{flashcard.conjugations.pastContinuous || "n/a"}</span>
+                    </div>
+                    <div className="flex flex-col border-b border-border/20 pb-1">
+                      <span className="text-primary/70 uppercase font-bold text-[8px]">Present Perfect</span>
+                      <span className="text-foreground/80 font-medium truncate">{flashcard.conjugations.presentPerfect || "n/a"}</span>
+                    </div>
+                    <div className="flex flex-col border-b border-border/20 pb-1">
+                      <span className="text-primary/70 uppercase font-bold text-[8px]">Past Perfect</span>
+                      <span className="text-foreground/80 font-medium truncate">{flashcard.conjugations.pastPerfect || "n/a"}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -399,9 +450,14 @@ export function FlashcardCard({ flashcard, onDelete, layout = "grid" }: Flashcar
                         >
                           {partOfSpeechLabels[form.partOfSpeech]}
                         </Badge>
-                        <span className="text-xs font-bold text-foreground">
-                          {form.translation}
-                        </span>
+                        <div className="flex flex-col leading-tight min-w-0">
+                          <span className="text-xs font-bold text-foreground truncate">
+                            {(form as any).word || ""}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground truncate">
+                            {form.translation}
+                          </span>
+                        </div>
                       </div>
                       <p className="text-[10px] text-muted-foreground italic leading-tight">
                         {form.example}

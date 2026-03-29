@@ -6,6 +6,7 @@ export interface ClassifiedWord {
 export type PartOfSpeech = "verb" | "noun" | "adjective" | "adverb" | "preposition" | "conjunction" | "interjection"
 
 export interface AlternativeForm {
+  word: string
   partOfSpeech: PartOfSpeech
   translation: string
   example: string
@@ -22,6 +23,7 @@ export interface Flashcard {
   word: string
   partOfSpeech: PartOfSpeech
   translation: string
+  usageNote?: string
   synonyms: ClassifiedWord[]
   antonyms: ClassifiedWord[]
   example: string
@@ -47,6 +49,7 @@ export interface FlashcardAIResponse {
   normalizedWord: string
   partOfSpeech: PartOfSpeech
   translation: string
+  usageNote?: string
   synonyms: ClassifiedWord[]
   antonyms: ClassifiedWord[]
   example: string

@@ -37,6 +37,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
+import type { Flashcard } from "@/lib/types"
 
 export function FlashcardsPage() {
   const { 
@@ -51,13 +52,14 @@ export function FlashcardsPage() {
     deleteFolder,
   } = useFlashcardsDB()
   
-  const { getStudyStats, isLoaded: isProgressLoaded } = useGrammarProgress()
+  const { getStudyStats, isLoaded: isProgressLoaded, dismissReviewWord } = useGrammarProgress()
   const studyStats = getStudyStats()
 
   const [newFolderName, setNewFolderName] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
   const [isStudying, setIsStudying] = useState(false)
+  const [studyCards, setStudyCards] = useState<Flashcard[] | null>(null)
   const [layout, setLayout] = useState<"grid" | "list" | "compact">("grid")
 
   const handleCreateFolder = async () => {
@@ -71,13 +73,18 @@ export function FlashcardsPage() {
 
   const selectedFolder = folders.find(f => f.id === selectedFolderId)
   const studyFolderName = selectedFolder?.name ?? "Todas as palavras"
+  const effectiveStudyCards = studyCards ?? flashcards
+  const visibleReviewWords = studyStats.wordsToReview
 
-  if (isStudying && flashcards.length > 0) {
+  if (isStudying && effectiveStudyCards.length > 0) {
     return (
       <StudyMode
-        flashcards={flashcards}
-        folderName={studyFolderName}
-        onExit={() => setIsStudying(false)}
+        flashcards={effectiveStudyCards}
+        folderName={studyCards ? "Revisão" : studyFolderName}
+        onExit={() => {
+          setIsStudying(false)
+          setStudyCards(null)
+        }}
       />
     )
   }
@@ -153,7 +160,7 @@ export function FlashcardsPage() {
       )}
 
       {/* Words to review */}
-      {isProgressLoaded && studyStats.wordsToReview.length > 0 && (
+      {isProgressLoaded && visibleReviewWords.length > 0 && (
         <Card className="bg-amber-500/5 border-amber-500/20">
           <CardContent className="py-4">
             <div className="flex items-start gap-3">
@@ -165,14 +172,47 @@ export function FlashcardsPage() {
                   Palavras para revisar
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {studyStats.wordsToReview.slice(0, 10).map((word, idx) => (
-                    <Badge key={idx} variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-300">
-                      {word}
-                    </Badge>
-                  ))}
-                  {studyStats.wordsToReview.length > 10 && (
+                  {visibleReviewWords
+                    .slice(0, 10)
+                    .map((word, idx) => (
+                      <DropdownMenu key={`${word}-${idx}`}>
+                        <DropdownMenuTrigger asChild>
+                          <Badge
+                            variant="secondary"
+                            className="cursor-pointer bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/15"
+                            title="Clique para revisar agora ou pular"
+                          >
+                            {word}
+                          </Badge>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault()
+                              dismissReviewWord(word)
+                              const cards = flashcards.filter((c) => c.word.toLowerCase() === word.toLowerCase())
+                              if (cards.length > 0) {
+                                setStudyCards(cards)
+                                setIsStudying(true)
+                              }
+                            }}
+                          >
+                            Revisar agora
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={(e) => {
+                              e.preventDefault()
+                              dismissReviewWord(word)
+                            }}
+                          >
+                            Pular
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ))}
+                  {visibleReviewWords.length > 10 && (
                     <Badge variant="secondary" className="bg-muted">
-                      +{studyStats.wordsToReview.length - 10} mais
+                      +{visibleReviewWords.length - 10} mais
                     </Badge>
                   )}
                 </div>

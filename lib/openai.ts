@@ -54,10 +54,12 @@ export interface FlashcardAIResponse {
   normalizedWord: string
   partOfSpeech: string
   translation: string
+  usageNote?: string
   synonyms: { word: string; type: "literal" | "abstract" }[]
   antonyms: { word: string; type: "literal" | "abstract" }[]
   example: string
   alternativeForms: {
+    word: string
     partOfSpeech: string
     translation: string
     example: string
@@ -77,43 +79,89 @@ export interface FlashcardAIResponse {
   } | null
 }
 
+export interface GenerateFlashcardOptions {
+  synonymsLevel?: number
+  includeConjugations?: boolean
+  includeAlternativeForms?: boolean
+  includeUsageNote?: boolean
+  efommMode?: boolean
+}
+
 export async function generateFlashcardData(
   apiKey: string,
   word: string,
-  model: string = "gpt-4o-mini"
+  model: string = "gpt-4o-mini",
+  options?: GenerateFlashcardOptions
 ): Promise<FlashcardAIResponse> {
-  console.log(`[OpenAI] Calling ${model} for word: ${word}`);
+  const synonymsLevel = Math.max(0, Math.min(3, options?.synonymsLevel ?? 2))
+  const includeConjugations = options?.includeConjugations ?? true
+  const includeAlternativeForms = options?.includeAlternativeForms ?? true
+  const includeUsageNote = options?.includeUsageNote ?? true
+  const efommMode = options?.efommMode ?? false
+
+  console.log(`[OpenAI] Calling ${model} for word: ${word}`)
+
+  const synonymsInstruction =
+    synonymsLevel === 0
+      ? `4. Do NOT generate synonyms or antonyms. Return "synonyms": [] and "antonyms": [].`
+      : `4. English synonyms and antonyms. Provide up to ${synonymsLevel} synonyms and up to ${synonymsLevel} antonyms that are highly relevant in American English. If none exist, return [].`
+
+  const conjugationsInstruction = includeConjugations
+    ? `6. If the part of speech is "verb", provide its conjugation in these 6 English tenses: Simple Present (3rd person singular), Simple Past, Present Continuous, Past Continuous, Present Perfect, and Past Perfect. Also, identify if it is "regular" or "irregular".`
+    : `6. If the part of speech is "verb", identify if it is "regular" or "irregular". Set "conjugations" to null.`
+
+  const usageNoteInstruction = includeUsageNote
+    ? `3b. USAGE NOTE (optional): If the English word is noticeably formal/technical/idiomatic, add a short note in Brazilian Portuguese explaining the typical context and give 1-2 everyday alternatives when appropriate. If not needed, return "" in "usageNote".`
+    : `3b. USAGE NOTE: Do NOT generate usage notes. Always return "usageNote": "" .`
+
+  const alternativeFormsInstruction = includeAlternativeForms
+    ? `8. ALTERNATIVE FORMS: If the word is commonly used as another part of speech in American English (e.g., noun and verb), include up to 2 alternative forms. IMPORTANT: For each alternative form, provide the correct English word/form in "word" (e.g., "elevation" for the noun, "elevated" for the adjective), plus its Portuguese translation and an example sentence using that exact English form. Do not repeat the primary part of speech.`
+    : `8. ALTERNATIVE FORMS: Do NOT generate alternative forms. Always return "alternativeForms": [].`
+
+  const efommInstruction = efommMode
+    ? `EFOMM MODE (MARITIME): Prefer maritime/naval/port/shipping/logistics meanings and example sentences whenever the word has a plausible and commonly used maritime sense in American English. If the word is not meaningfully related to maritime contexts, keep the general meaning and a normal example. Do NOT force maritime context when it would be unnatural.
+
+If EFOMM mode changes the meaning compared to everyday/general usage, you may briefly clarify it in "usageNote". Otherwise, do not mention maritime context explicitly.`
+    : ``
+
   const messages: OpenAIMessage[] = [
     {
       role: "system",
       content: `You are a senior American English teacher specializing in teaching Brazilian Portuguese speakers. 
 Your base of knowledge is strictly AMERICAN ENGLISH.
 
+${efommInstruction}
+
 When given an English word, perform these steps:
 1. If it's a verb in any form (e.g., "running", "ran", "lifts"), NORMALIZE it to its base form/infinitive (e.g., "run", "lift"). Return this in "normalizedWord".
 2. Its primary part of speech in American English.
-3. Portuguese translation. Provide exactly 1 or 2 most common and accurate translations in Portuguese, separated by slashes.
-   - Example for "Fabric": "tecido / pano".
-4. English synonyms and antonyms. Provide 2-4 synonyms and 1-3 antonyms that are highly relevant. If none exist, return [].
+3. Portuguese translation (Brazilian Portuguese). Provide exactly 1 or 2 most common and accurate translations in Portuguese, separated by slashes.
+   - Prefer a neutral, standard translation (no slang, no overly informal phrasing).
+   - Avoid overly specific/contextual translations unless it's the primary meaning (e.g., do NOT default to "encontro romântico" for "date"; only include it if the primary meaning is clearly romantic date in American English for the given part of speech).
+   - If two translations would be near-synonyms or essentially the same meaning (e.g., "beber / tomar" for "drink"), choose ONLY the most natural/pleasant one and return a single translation.
+   - Example for "Fabric": "tecido / pano" (only if both are truly distinct/common).
+${usageNoteInstruction}
+${synonymsInstruction}
 5. An natural example sentence in American English.
-6. If the part of speech is "verb", provide its conjugation in these 6 English tenses: Simple Present (3rd person singular), Simple Past, Present Continuous, Past Continuous, Present Perfect, and Past Perfect. Also, identify if it is "regular" or "irregular".
+${conjugationsInstruction}
 7. FALSE COGNATE DETECTION (ULTRA-STRICT): 
    - You must check EVERY word (noun, verb, adverb, adjective, etc.) to see if it is a false cognate (falso amigo) for Portuguese speakers.
    - A word is a false cognate if its spelling or sound resembles a Portuguese word, but its meaning in American English is different.
    - EXAMPLES TO DETECT: "Actually" (looks like atualmente), "Parents" (looks like parentes), "Library" (looks like livraria), "Push" (looks like puxe), "Novel" (looks like novela), "Fabric" (looks like fábrica), "Attend" (looks like atender), "Pretend" (looks like pretender), "Notice" (looks like notícia), etc.
    - If it IS a false cognate, set "isFalseCognate" to true and provide a mandatory warning following this pattern: "Word: Significado Correto (não é 'Palavra Errada' - que seria 'Tradução da Errada')".
    - If NOT a false cognate, set "isFalseCognate" to false and "warning" to "".
-8. ALTERNATIVE FORMS: Only include if the word has a significantly different meaning when used as a different part of speech.
+${alternativeFormsInstruction}
 
 Return a JSON with this exact structure:
 {
   "normalizedWord": "the word",
   "partOfSpeech": "verb" | "noun" | "adjective" | "adverb" | "preposition" | "conjunction" | "interjection",
   "translation": "Portuguese translation(s)",
+  "usageNote": "optional short note in Portuguese, or empty string",
   "synonyms": [{"word": "synonym1", "type": "literal"}],
   "antonyms": [{"word": "antonym1", "type": "literal"}],
   "example": "Example sentence.",
-  "alternativeForms": [],
+  "alternativeForms": [{"word": "elevation", "partOfSpeech": "noun", "translation": "elevação", "example": "The elevation is 2,000 meters."}],
   "verbType": "regular" | "irregular" | null,
   "falseCognate": {
     "isFalseCognate": boolean,

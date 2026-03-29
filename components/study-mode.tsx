@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { useGrammarProgress } from "@/hooks/use-grammar-progress"
 import type { Flashcard, ClassifiedWord, PartOfSpeech } from "@/lib/types"
 import { useAnimations } from "@/hooks/use-animations"
+import { useAiPreferences } from "@/hooks/use-ai-preferences"
 
 const partOfSpeechLabels: Record<PartOfSpeech, string> = {
   verb: "Verbo",
@@ -37,13 +38,17 @@ interface StudyModeProps {
 
 type StudyState = "studying" | "finished"
 
-function ClassifiedWordList({ words, label }: { words: ClassifiedWord[]; label: string }) {
+function ClassifiedWordList({ words, label, maxCount }: { words: ClassifiedWord[]; label: string; maxCount: number }) {
   if (!words || words.length === 0) return null
+  if (maxCount <= 0) return null
+
+  const visible = words.slice(0, maxCount)
+  if (visible.length === 0) return null
   return (
     <div className="space-y-1.5">
       <span className="text-[10px] font-bold text-muted-foreground dark:text-white/40 uppercase tracking-widest">{label}</span>
       <div className="flex flex-wrap gap-1.5">
-        {words.map((item, idx) => (
+        {visible.map((item, idx) => (
           <Badge
             key={idx}
             className={cn(
@@ -67,6 +72,7 @@ function ClassifiedWordList({ words, label }: { words: ClassifiedWord[]; label: 
 export function StudyMode({ flashcards, folderName, onExit }: StudyModeProps) {
   const { saveStudySession } = useGrammarProgress()
   const { enabled: animationsEnabled } = useAnimations()
+  const { synonymsLevel, includeConjugations, includeAlternativeForms, includeUsageNote } = useAiPreferences()
   
   // queue: palavras restantes. wrong: palavras erradas que voltam ao final
   const [queue, setQueue] = useState<Flashcard[]>(() => [...flashcards])
@@ -74,6 +80,7 @@ export function StudyMode({ flashcards, folderName, onExit }: StudyModeProps) {
   const [knownIds, setKnownIds] = useState<Set<string>>(new Set())
   const [correctFirstTryIds, setCorrectFirstTryIds] = useState<Set<string>>(new Set())
   const [isFlipped, setIsFlipped] = useState(false)
+  const [showConjugations, setShowConjugations] = useState(false)
   const [studyState, setStudyState] = useState<StudyState>("studying")
   const [animating, setAnimating] = useState(false)
   const [direction, setDirection] = useState<"left" | "right" | null>(null)
@@ -81,10 +88,20 @@ export function StudyMode({ flashcards, folderName, onExit }: StudyModeProps) {
   const [reviewedWords, setReviewedWords] = useState<Set<string>>(new Set())
 
   const current = queue[0]
-  const alternativeForms = current ? (current.alternativeForms || []).filter(f => f.translation && f.partOfSpeech) : []
+  const currentPartOfSpeech = current?.partOfSpeech || "noun"
+  const alternativeForms =
+    includeAlternativeForms && current
+      ? (current.alternativeForms || []).filter(
+          (f) => f.translation && f.partOfSpeech && f.partOfSpeech !== currentPartOfSpeech
+        )
+      : []
   const remaining = queue.length
   const totalKnown = knownIds.size
   const totalCards = flashcards.length
+
+  useEffect(() => {
+    setShowConjugations(false)
+  }, [current?.id])
 
   // Save session when finished
   useEffect(() => {
@@ -398,10 +415,20 @@ export function StudyMode({ flashcards, folderName, onExit }: StudyModeProps) {
 
                   <div className="flex-1 space-y-6 overflow-y-auto pr-1 scrollbar-hide">
                     <p className="text-4xl font-bold text-foreground border-b pb-2">{current.translation}</p>
+                    {includeUsageNote && !!current.usageNote && (
+                      <div className="bg-muted/30 border border-border/40 rounded-xl p-4">
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                          Contexto
+                        </span>
+                        <p className="text-sm text-foreground mt-2 leading-relaxed">
+                          {current.usageNote}
+                        </p>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-4">
-                      <ClassifiedWordList words={current.synonyms} label="Sinônimos" />
-                      <ClassifiedWordList words={current.antonyms} label="Antônimos" />
+                      <ClassifiedWordList words={current.synonyms} label="Sinônimos" maxCount={synonymsLevel} />
+                      <ClassifiedWordList words={current.antonyms} label="Antônimos" maxCount={synonymsLevel} />
                     </div>
 
                     <div className="bg-muted/30 p-4 rounded-xl">
@@ -437,9 +464,14 @@ export function StudyMode({ flashcards, folderName, onExit }: StudyModeProps) {
                                 <Badge className={cn("text-[9px] font-bold uppercase tracking-tighter border-0", partOfSpeechColors[form.partOfSpeech])}>
                                   {partOfSpeechLabels[form.partOfSpeech]}
                                 </Badge>
-                                <span className="text-sm font-bold text-foreground">
-                                  {form.translation}
-                                </span>
+                                <div className="flex flex-col leading-tight min-w-0">
+                                  <span className="text-sm font-bold text-foreground truncate">
+                                    {(form as any).word || ""}
+                                  </span>
+                                  <span className="text-[11px] text-muted-foreground truncate">
+                                    {form.translation}
+                                  </span>
+                                </div>
                               </div>
                               <p className="text-xs text-muted-foreground italic leading-relaxed">
                                 {form.example}
@@ -450,37 +482,52 @@ export function StudyMode({ flashcards, folderName, onExit }: StudyModeProps) {
                       </div>
                     )}
 
-                    {current.conjugations && (
+                    {includeConjugations && current.conjugations && (
                       <div className="pt-4 border-t border-border">
-                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-3">
-                          Verb Tenses
-                        </span>
-                        <div className="grid grid-cols-2 gap-3 text-[11px]">
-                          <div className="flex flex-col bg-muted/20 p-2 rounded-lg">
-                            <span className="text-primary font-bold text-[9px] uppercase">Simple Present</span>
-                            <span className="text-foreground font-medium">{current.conjugations.simplePresent || "n/a"}</span>
-                          </div>
-                          <div className="flex flex-col bg-muted/20 p-2 rounded-lg">
-                            <span className="text-primary font-bold text-[9px] uppercase">Simple Past</span>
-                            <span className="text-foreground font-medium">{current.conjugations.simplePast || "n/a"}</span>
-                          </div>
-                          <div className="flex flex-col bg-muted/20 p-2 rounded-lg">
-                            <span className="text-primary font-bold text-[9px] uppercase">Pres. Continuous</span>
-                            <span className="text-foreground font-medium">{current.conjugations.presentContinuous || "n/a"}</span>
-                          </div>
-                          <div className="flex flex-col bg-muted/20 p-2 rounded-lg">
-                            <span className="text-primary font-bold text-[9px] uppercase">Past Continuous</span>
-                            <span className="text-foreground font-medium">{current.conjugations.pastContinuous || "n/a"}</span>
-                          </div>
-                          <div className="flex flex-col bg-muted/20 p-2 rounded-lg">
-                            <span className="text-primary font-bold text-[9px] uppercase">Present Perfect</span>
-                            <span className="text-foreground font-medium">{current.conjugations.presentPerfect || "n/a"}</span>
-                          </div>
-                          <div className="flex flex-col bg-muted/20 p-2 rounded-lg">
-                            <span className="text-primary font-bold text-[9px] uppercase">Past Perfect</span>
-                            <span className="text-foreground font-medium">{current.conjugations.pastPerfect || "n/a"}</span>
-                          </div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                            Verb Tenses
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-[10px] font-bold text-primary hover:bg-primary/10 hover:text-primary"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setShowConjugations((v) => !v)
+                            }}
+                          >
+                            {showConjugations ? "Ocultar" : "Mostrar"}
+                          </Button>
                         </div>
+                        {showConjugations && (
+                          <div className="grid grid-cols-2 gap-3 text-[11px]">
+                            <div className="flex flex-col bg-muted/20 p-2 rounded-lg">
+                              <span className="text-primary font-bold text-[9px] uppercase">Simple Present</span>
+                              <span className="text-foreground font-medium">{current.conjugations.simplePresent || "n/a"}</span>
+                            </div>
+                            <div className="flex flex-col bg-muted/20 p-2 rounded-lg">
+                              <span className="text-primary font-bold text-[9px] uppercase">Simple Past</span>
+                              <span className="text-foreground font-medium">{current.conjugations.simplePast || "n/a"}</span>
+                            </div>
+                            <div className="flex flex-col bg-muted/20 p-2 rounded-lg">
+                              <span className="text-primary font-bold text-[9px] uppercase">Pres. Continuous</span>
+                              <span className="text-foreground font-medium">{current.conjugations.presentContinuous || "n/a"}</span>
+                            </div>
+                            <div className="flex flex-col bg-muted/20 p-2 rounded-lg">
+                              <span className="text-primary font-bold text-[9px] uppercase">Past Continuous</span>
+                              <span className="text-foreground font-medium">{current.conjugations.pastContinuous || "n/a"}</span>
+                            </div>
+                            <div className="flex flex-col bg-muted/20 p-2 rounded-lg">
+                              <span className="text-primary font-bold text-[9px] uppercase">Present Perfect</span>
+                              <span className="text-foreground font-medium">{current.conjugations.presentPerfect || "n/a"}</span>
+                            </div>
+                            <div className="flex flex-col bg-muted/20 p-2 rounded-lg">
+                              <span className="text-primary font-bold text-[9px] uppercase">Past Perfect</span>
+                              <span className="text-foreground font-medium">{current.conjugations.pastPerfect || "n/a"}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -495,7 +542,10 @@ export function StudyMode({ flashcards, folderName, onExit }: StudyModeProps) {
 
             {/* Hint para virar antes de responder */}
             {!isFlipped && (
-              <p className="text-center text-sm text-muted-foreground mt-6 animate-pulse">
+              <p className={cn(
+                "text-center text-sm text-muted-foreground mt-6",
+                animationsEnabled && "animate-pulse"
+              )}>
                 Toque no card para ver o verso
               </p>
             )}
@@ -503,7 +553,8 @@ export function StudyMode({ flashcards, folderName, onExit }: StudyModeProps) {
             {/* Action buttons — aparecem so apos virar */}
             <div
               className={cn(
-                "flex gap-4 mt-8 transition-all duration-500",
+                "flex gap-4 mt-8 transition-all",
+                animationsEnabled ? "duration-500" : "duration-0",
                 isFlipped ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
               )}
             >

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { useApiKey } from "@/hooks/use-api-key"
 import { useGptModel } from "@/hooks/use-gpt-model"
+import { useAiPreferences } from "@/hooks/use-ai-preferences"
 import { generateFlashcardData } from "@/lib/openai"
 import type { Flashcard } from "@/lib/types"
 
@@ -17,6 +18,13 @@ interface AddFlashcardFormProps {
 export function AddFlashcardForm({ onAdd }: AddFlashcardFormProps) {
   const { apiKey, hasApiKey } = useApiKey()
   const { model } = useGptModel()
+  const {
+    synonymsLevel,
+    includeConjugations,
+    includeAlternativeForms,
+    includeUsageNote,
+    efommMode,
+  } = useAiPreferences()
   const [word, setWord] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -29,13 +37,20 @@ export function AddFlashcardForm({ onAdd }: AddFlashcardFormProps) {
     setError(null)
 
     try {
-      const data = await generateFlashcardData(apiKey, word.trim(), model)
+      const data = await generateFlashcardData(apiKey, word.trim(), model, {
+        synonymsLevel,
+        includeConjugations,
+        includeAlternativeForms,
+        includeUsageNote,
+        efommMode,
+      })
 
       const flashcard: Flashcard = {
         id: crypto.randomUUID(),
         word: data.normalizedWord.toLowerCase(),
         partOfSpeech: data.partOfSpeech,
         translation: data.translation,
+        usageNote: data.usageNote || "",
         synonyms: data.synonyms,
         antonyms: data.antonyms,
         example: data.example,
@@ -116,8 +131,8 @@ export function AddFlashcardForm({ onAdd }: AddFlashcardFormProps) {
           )}
 
           <p className="text-xs text-muted-foreground">
-            A IA irá gerar automaticamente a classe gramatical, tradução, sinônimos, 
-            antônimos, exemplo de uso e formas alternativas (quando houver).
+            A IA irá gerar automaticamente o conteúdo do card com base nas suas preferências (sinônimos/antônimos e
+            conjugações de verbos).
           </p>
         </form>
       </CardContent>
