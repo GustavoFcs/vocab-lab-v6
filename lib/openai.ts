@@ -150,6 +150,7 @@ IMPORTANT:
    - Provide a concise Portuguese translation (include the article if it is a noun, e.g., "a elevação").
    - Avoid meta-definitions like "o ato de..." for alternative noun forms. If the best you can do is an "act of ..." explanation, then DO NOT include that alternative form.
    - Provide an example sentence using that exact English form.
+   - REAVALIE the false cognate status for each alternative form independently.
 Do not repeat the primary part of speech.`
     : `8. ALTERNATIVE FORMS: Do NOT generate alternative forms. Always return "alternativeForms": [].`
 
@@ -189,7 +190,8 @@ ${synonymsInstruction}
 ${conjugationsInstruction}
 7. FALSE COGNATE DETECTION: 
    - Check if the word is a false cognate (falso amigo) for Portuguese speakers IN THIS SPECIFIC PART OF SPEECH.
-   - A word is a false cognate ONLY IF its spelling/sound resembles a Portuguese word, BUT its actual translation is different.
+   - A word is a false cognate ONLY IF its spelling/sound resembles a Portuguese word, BUT its actual translation is completely different.
+   - CAUTION WITH POLYSEMY (MULTIPLE MEANINGS): If the English word looks like a PT word, and it CAN actually mean that PT word in some contexts (e.g., "record" CAN mean "recorde", even if its primary meaning is "registro"), then it is NOT a false cognate. Do not trigger the warning.
    - CAUTION WITH DUAL WORDS: For example, "Prejudice" (noun) means "preconceito" (looks like "prejuízo", so it IS a false cognate). BUT "Prejudice" (verb) translates to "prejudicar" (it looks like "prejudicar" and means "prejudicar", so it is a TRUE COGNATE, not false).
 ${alternativeFormsInstruction}
 
@@ -226,8 +228,11 @@ CRITICAL RULES FOR JSON:
    - If it IS a verb, fill "_verbReasoning" first. If Yes (-ed/-d), you MUST set "verbType": "regular". If No (like cut, put, bought), you MUST set "verbType": "irregular".
 2. FALSE COGNATES:
    - Fill "_falseCognateReasoning" first. Compare the ACTUAL translation generated in step 3 with the Portuguese word it resembles.
-   - If the English word looks like a PT word but the translation is completely different (e.g., "Push" translates to "empurrar", but looks like "puxar"), set "isFalseCognate": true and write the warning.
-   - If the English word looks like a PT word AND translates to it (e.g., "Prejudice" verb translates to "prejudicar"), it is a TRUE COGNATE. Set "isFalseCognate": false and "warning": "".`,
+   - SANITY CHECK: If the English word actually IS the correct translation for the Portuguese word it resembles (e.g., "record" is indeed the translation for "recorde"), then your analysis is wrong. Set "isFalseCognate": false and "warning": "".
+   - If the English word looks like a PT word but the translation is completely different (e.g., "Push" translates to "empurrar", but looks like "puxar"), set "isFalseCognate": true.
+   - IMPORTANT WARNING TEMPLATE: If "isFalseCognate" is true, the "warning" string MUST STRICTLY follow this exact template: 
+     "Cuidado: '[Palavra em Inglês]' não significa '[Tradução Falsa em Português]'; significa '[Tradução Correta em Português]'. Para dizer '[Tradução Falsa em Português]' em inglês, use '[Palavra Correta em Inglês]'."
+   - If the English word looks like a PT word AND translates to it, it is a TRUE COGNATE. Set "isFalseCognate": false and "warning": "".`,
     },
     {
       role: "user",
@@ -309,6 +314,9 @@ Usage note instruction: ${usageNoteInstruction}
 Alternative forms instruction: ${alternativeFormsInstruction}
 
 Also re-check false cognate status for Portuguese speakers IN THIS SPECIFIC PART OF SPEECH and return "falseCognate" accordingly.
+SANITY CHECK: If the English word actually IS the correct translation for the Portuguese word it resembles (e.g., "record" is indeed the translation for "recorde"), do NOT mark it as a false cognate. Set "isFalseCognate": false and "warning": "".
+IMPORTANT: If "isFalseCognate" is true, the "warning" MUST strictly follow this exact template: 
+"Cuidado: '[Palavra em Inglês]' não significa '[Tradução Falsa em Português]'; significa '[Tradução Correta em Português]'. Para dizer '[Tradução Falsa em Português]' em inglês, use '[Palavra Correta em Inglês]'."
 
 Return JSON with this exact structure:
 {
