@@ -187,10 +187,10 @@ ${usageNoteInstruction}
 ${synonymsInstruction}
 5. An natural example sentence in American English.
 ${conjugationsInstruction}
-7. FALSE COGNATE DETECTION (ULTRA-STRICT): 
-   - You must check EVERY word to see if it is a false cognate (falso amigo) for Portuguese speakers IN THAT SPECIFIC PART OF SPEECH.
-   - A word is a false cognate if its spelling or sound resembles a Portuguese word, but its meaning in American English is different.
-   - EXAMPLES TO DETECT: "Actually", "Parents", "Library", "Push", "Novel", "Fabric", "Attend", "Pretend", "Notice", "Record" (verb only), etc.
+7. FALSE COGNATE DETECTION: 
+   - Check if the word is a false cognate (falso amigo) for Portuguese speakers IN THIS SPECIFIC PART OF SPEECH.
+   - A word is a false cognate ONLY IF its spelling/sound resembles a Portuguese word, BUT its actual translation is different.
+   - CAUTION WITH DUAL WORDS: For example, "Prejudice" (noun) means "preconceito" (looks like "prejuízo", so it IS a false cognate). BUT "Prejudice" (verb) translates to "prejudicar" (it looks like "prejudicar" and means "prejudicar", so it is a TRUE COGNATE, not false).
 ${alternativeFormsInstruction}
 
 Return a JSON with this exact structure:
@@ -205,7 +205,7 @@ Return a JSON with this exact structure:
   "alternativeForms": [{"word": "elevation", "partOfSpeech": "noun", "translation": "elevação", "example": "The elevation is 2,000 meters."}],
   "_verbReasoning": "Template: 'Past is [word]. Ends in -ed/-d? [Yes/No]. Type: [regular/irregular]'",
   "verbType": "regular" | "irregular" | null,
-  "_falseCognateReasoning": "Looks like PT word? [Yes/No]. Which? [word]. Does THIS specific part of speech have a different meaning? [Yes/No]",
+  "_falseCognateReasoning": "Template: 'Translation is [word]. Looks like PT word [word]. Do they match? [Yes/No]. False Cognate? [Yes/No]'",
   "falseCognate": {
     "isFalseCognate": boolean,
     "warning": "Warning message"
@@ -225,9 +225,9 @@ CRITICAL RULES FOR JSON:
    - If "partOfSpeech" is NOT a verb: set "_verbReasoning" to "n/a" and "verbType" to null.
    - If it IS a verb, fill "_verbReasoning" first. If Yes (-ed/-d), you MUST set "verbType": "regular". If No (like cut, put, bought), you MUST set "verbType": "irregular".
 2. FALSE COGNATES:
-   - Fill "_falseCognateReasoning" first. Think: Does this English word resemble a Portuguese word BUT means something completely different in THIS specific part of speech?
-   - If Yes (e.g., "Push" looks like "Puxe" but means "Empurrar"), set "isFalseCognate": true and create a specific warning. Example: "Push: Empurrar (não é 'puxar' - que seria 'pull')".
-   - If No (it doesn't look like a PT word, OR it is a True Cognate in this part of speech, like "Music" = "Música"), set "isFalseCognate": false and "warning": "".`,
+   - Fill "_falseCognateReasoning" first. Compare the ACTUAL translation generated in step 3 with the Portuguese word it resembles.
+   - If the English word looks like a PT word but the translation is completely different (e.g., "Push" translates to "empurrar", but looks like "puxar"), set "isFalseCognate": true and write the warning.
+   - If the English word looks like a PT word AND translates to it (e.g., "Prejudice" verb translates to "prejudicar"), it is a TRUE COGNATE. Set "isFalseCognate": false and "warning": "".`,
     },
     {
       role: "user",
