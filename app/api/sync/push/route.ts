@@ -6,6 +6,13 @@ function normalizeSyncCode(value: unknown) {
   return value.trim().toLowerCase()
 }
 
+export async function GET() {
+  return new Response(JSON.stringify({ status: "A API está viva e operante!" }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()
