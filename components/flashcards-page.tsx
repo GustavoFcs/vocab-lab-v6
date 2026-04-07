@@ -95,7 +95,7 @@ export function FlashcardsPage() {
     if (!hasApiKey || !apiKey) {
       toast({
         title: "API Key necessária",
-        description: "Configure sua chave da OpenAI nas configurações para gerar novos cards.",
+        description: "Configure sua chave do OpenRouter nas configurações para gerar novos cards.",
         variant: "destructive",
       })
       return

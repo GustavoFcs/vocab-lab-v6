@@ -179,7 +179,7 @@ export function AddFlashcardForm({ onAdd }: AddFlashcardFormProps) {
           </h3>
           <p className="text-sm text-muted-foreground max-w-sm">
             Clique no ícone de configurações no canto superior direito para
-            adicionar sua chave da OpenAI.
+            adicionar sua chave do OpenRouter.
           </p>
         </CardContent>
       </Card>

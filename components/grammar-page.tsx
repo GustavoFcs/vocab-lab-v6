@@ -114,10 +114,10 @@ export function GrammarPage() {
             <h3 className="font-semibold text-foreground mb-1">
               Configure sua API Key
             </h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Clique no ícone de configurações no canto superior direito para
-              adicionar sua chave da OpenAI.
-            </p>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Clique no ícone de configurações no canto superior direito para
+                adicionar sua chave do OpenRouter.
+              </p>
           </CardContent>
         </Card>
       </div>

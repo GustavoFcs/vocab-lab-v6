@@ -229,13 +229,13 @@ export function SettingsDialog() {
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl p-0 overflow-hidden">
-        <DialogHeader className="p-5">
+          <DialogHeader className="p-5">
           <DialogTitle className="flex items-center gap-2">
             <Key className="size-5 text-primary" />
             Configurações
           </DialogTitle>
           <DialogDescription>
-            Configure sua chave de API da OpenAI e preferências do app.
+            Configure sua chave de API do OpenRouter e preferências do app.
           </DialogDescription>
         </DialogHeader>
         <div className="border-t flex flex-col sm:flex-row">
@@ -266,14 +266,14 @@ export function SettingsDialog() {
                     <BrainCircuit className="size-4 text-primary" />
                     Modelo de Inteligência Artificial
                   </h4>
-                  <Select value={model} onValueChange={(v) => setModel(v as GptModel)}>
+                      <Select value={model} onValueChange={(v) => setModel(v as GptModel)}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Selecione o modelo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="gpt-4o-mini">GPT-4o Mini (Rápido & Econômico)</SelectItem>
-                      <SelectItem value="gpt-5-nano">GPT-5 Nano (Leve & Rápido)</SelectItem>
-                      <SelectItem value="gpt-5.4-mini-2026-03-17">GPT-5.4 Mini (Próxima Geração)</SelectItem>
+                      <SelectItem value="openai/gpt-4o-mini">GPT-4o Mini (Rápido & Econômico)</SelectItem>
+                      <SelectItem value="openai/gpt-5-nano">GPT-5 Nano (Leve & Rápido)</SelectItem>
+                      <SelectItem value="openai/gpt-5.4-mini">GPT-5.4 Mini (Próxima Geração)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-[10px] text-muted-foreground">
@@ -298,9 +298,9 @@ export function SettingsDialog() {
 
                 <div className="space-y-3 pt-4 border-t">
                   <h4 className="text-sm font-medium flex items-center gap-2">
-                    <Key className="size-4 text-primary" />
-                    OpenAI API Key
-                  </h4>
+                      <Key className="size-4 text-primary" />
+                      OpenRouter API Key
+                    </h4>
                   {hasApiKey ? (
                     <div className="space-y-3">
                       <div className="flex items-start gap-2 rounded-lg border bg-muted/50 p-3 min-h-[60px]">

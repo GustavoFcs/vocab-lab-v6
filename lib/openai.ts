@@ -26,7 +26,10 @@ async function callOpenRouter<T>(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
-      "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+      // Compute referer safely for both browser and server environments without relying on `process` identifier
+      "HTTP-Referer":
+        (typeof window !== "undefined" && window.location?.origin) ||
+        ((globalThis as any).process?.env?.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
       "X-OpenRouter-Title": "Meu App de Flashcards",
     },
     body: JSON.stringify({
@@ -233,7 +236,7 @@ export async function reviseFlashcardByTranslation(
     includeAlternativeForms?: boolean
     includeUsageNote?: boolean
   },
-  model: string = "openai/gpt-4o-mini"
+  model: string = "openai/gpt-5.4-mini"
 ): Promise<FlashcardRevisionResponse> {
   const synonymsLevel = Math.max(0, Math.min(3, input.synonymsLevel ?? 2))
   const includeAlternativeForms = input.includeAlternativeForms ?? true
@@ -315,7 +318,7 @@ export async function generateGrammarExercises(
   apiKey: string,
   flashcards: Flashcard[],
   exerciseType: "fill-blank" | "verb-conjugation" | "mixed",
-  model: string = "openai/gpt-4o-mini",
+  model: string = "openai/gpt-5.4-mini",
   count: number = 5
 ): Promise<GrammarExercise[]> {
   const words = flashcards.map((f) => f.word).join(", ")

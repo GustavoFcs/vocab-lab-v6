@@ -136,7 +136,7 @@ export function FlashcardCard({ flashcard, onDelete, onCreateFromAlternative, on
     if (!hasApiKey || !apiKey) {
       toast({
         title: "API Key necessária",
-        description: "Configure sua chave da OpenAI nas configurações.",
+        description: "Configure sua chave do OpenRouter nas configurações.",
         variant: "destructive",
       })
       return
