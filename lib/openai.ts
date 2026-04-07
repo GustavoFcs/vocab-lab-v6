@@ -144,13 +144,15 @@ export async function generateFlashcardData(
     : `3b. NOTA DE USO: NÃO gere notas de uso. Sempre retorne "usageNote": "".`
 
   const alternativeFormsInstruction = includeAlternativeForms
-    ? `7. FORMAS ALTERNATIVAS: Se a palavra for comumente usada como outra classe gramatical no inglês americano (ex: substantivo e verbo), inclua até 2 formas alternativas. Faça isso APENAS quando o significado for comumente usado e significativamente diferente do sentido principal.
+    ? `7. FORMAS ALTERNATIVAS (Derivações e Conversões): SEMPRE QUE POSSÍVEL, force a inclusão de até 2 formas derivadas ou de conversão de classe gramatical muito comuns no Inglês Americano. 
+   - Exemplo prático: se o card for o verbo "run", busque listar o substantivo ("run" - a corrida) e um derivado ("runner" - o corredor, ou "runny" - escorrendo). Se for "use", traga "useful" e "usage".
 IMPORTANTE:
-   - Para cada forma alternativa, forneça a palavra/forma correta em INGLÊS em "word" (ex: "elevation" para substantivo, "elevated" para adjetivo).
-   - Forneça uma tradução concisa e natural EM PORTUGUÊS BRASILEIRO (inclua o artigo se for substantivo, ex: "a elevação").
-   - Evite meta-definições como "o ato de..." para substantivos alternativos. Se a única tradução possível for uma explicação de "ato de...", NÃO inclua essa forma alternativa.
-   - Forneça uma frase de exemplo EM INGLÊS usando exatamente essa forma alternativa.
-Não repita a classe gramatical principal.`
+   - Tente atingir o máximo de 2 formas sempre que existirem derivações naturais.
+   - A classe gramatical ("partOfSpeech") dessas alternativas DEVE ser diferente da classe principal do card.
+   - A "word" deve ser a forma correta em INGLÊS. Pode ser a mesma palavra-raiz atuando em outra classe gramatical.
+   - Forneça uma tradução concisa e natural EM PORTUGUÊS BRASILEIRO (OBRIGATÓRIO incluir o artigo se for substantivo, ex: "a elevação").
+   - Evite meta-definições ("o ato de...").
+   - Forneça uma frase de exemplo EM INGLÊS usando essa forma alternativa.`
     : `7. FORMAS ALTERNATIVAS: NÃO gere formas alternativas. Sempre retorne "alternativeForms": [].`
 
   const efommInstruction = efommMode
@@ -251,7 +253,11 @@ export async function reviseFlashcardByTranslation(
       : `Forneça até ${synonymsLevel} sinônimos e até ${synonymsLevel} antônimos em INGLÊS que correspondam ao sentido EXATO implícito pela tradução.`
 
   const alternativeFormsInstruction = includeAlternativeForms
-    ? `Se relevante, inclua até 2 formas alternativas com a palavra "word" correta em inglês, sua classe gramatical, tradução para o português (use artigo para substantivos) e uma frase de exemplo em inglês. Evite meta-definições como "o ato de...".`
+    ? `FORMAS ALTERNATIVAS (Derivações e Conversões): SEMPRE QUE POSSÍVEL, inclua até 2 formas derivadas ou de conversão de classe gramatical (ex: substantivo/adjetivo).
+   - Tente atingir o máximo de 2 formas sempre que existirem derivações naturais.
+   - A classe gramatical deve ser diferente da classe principal.
+   - A palavra deve estar em INGLÊS. Forneça tradução natural em PORTUGUÊS BRASILEIRO (com artigo para substantivos) e um exemplo em INGLÊS.
+   - Evite meta-definições ("o ato de...").`
     : `Sempre retorne "alternativeForms": [].`
 
   const usageNoteInstruction = includeUsageNote
