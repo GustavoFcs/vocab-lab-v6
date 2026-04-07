@@ -272,8 +272,8 @@ export function SettingsDialog() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="openai/gpt-4o-mini">GPT-4o Mini (Rápido & Econômico)</SelectItem>
-                      <SelectItem value="openai/gpt-5-nano">GPT-5 Nano (Leve & Rápido)</SelectItem>
                       <SelectItem value="openai/gpt-5.4-mini">GPT-5.4 Mini (Próxima Geração)</SelectItem>
+                      <SelectItem value="openai/gpt-5.4-nano">GPT-5.4 Nano (Próxima Geração)</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-[10px] text-muted-foreground">
