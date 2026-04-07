@@ -121,81 +121,79 @@ export async function generateFlashcardData(
 
   const synonymsInstruction =
     synonymsLevel === 0
-      ? `4. Do NOT generate synonyms or antonyms. Return "synonyms": [] and "antonyms": [].`
-      : `4. SYNONYMS & ANTONYMS (American English): Provide up to ${synonymsLevel} synonyms and up to ${synonymsLevel} antonyms that match the EXACT sense of the card (same part of speech + same meaning). If none exist, return [].
-   - Every synonym/antonym MUST include a type: "literal" | "figurative" | "slang".
-     * literal: physical action / concrete object / direct denotation
-     * figurative: metaphorical/abstract usage (not physical)
-     * slang: very informal / colloquial / idiomatic expression
-   - Fidelity to context: do not include items that fit a different sense (e.g., if "drink" means social alcohol, don't include "hydrate").
-   - Exclusion: avoid lazy/generic words ("get", "do", "go") unless they are truly the best match.
-   - Antonyms: prefer relational/direct opposites of the intended meaning (e.g., for "go drinking" prefer "stay sober" / "abstain").`
+      ? `4. NÃO gere sinônimos ou antônimos. Retorne "synonyms": [] e "antonyms": [].`
+      : `4. SINÔNIMOS E ANTÔNIMOS (Em Inglês Americano): Forneça até ${synonymsLevel} sinônimos e até ${synonymsLevel} antônimos que correspondam EXATAMENTE ao sentido do card (mesma classe gramatical + mesmo significado). Se não existirem, retorne [].
+   - Cada sinônimo/antônimo DEVE incluir um tipo: "literal" | "figurative" | "slang".
+     * literal: ação física / objeto concreto / denotação direta
+     * figurative: uso metafórico/abstrato (não físico)
+     * slang: expressão muito informal / coloquial / idiomática
+   - Fidelidade ao contexto: não inclua palavras que servem apenas para outros sentidos da palavra (ex: se "drink" significa álcool no contexto social, não inclua "hydrate").
+   - Exclusão: evite palavras genéricas ou preguiçosas ("get", "do", "go") a menos que sejam a melhor correspondência.
+   - Antônimos: prefira opostos diretos do significado pretendido (ex: para "go drinking", prefira "stay sober").`
 
   const conjugationsInstruction = includeConjugations
-    ? `6. CONJUGATIONS: If "partOfSpeech" is "verb", provide its 6 English tenses. If NOT a verb, set "conjugations" to null.`
-    : `6. CONJUGATIONS: Set "conjugations" to null.`
+    ? `6. CONJUGAÇÕES (Em Inglês Americano): Se "partOfSpeech" for "verb", forneça os 6 tempos verbais. Se NÃO for um verbo, defina "conjugations" como null.`
+    : `6. CONJUGAÇÕES: Defina "conjugations" como null.`
 
   const usageNoteInstruction = includeUsageNote
-    ? `3b. USAGE NOTE (optional): If the English word is noticeably formal/technical/idiomatic, add a short note in Brazilian Portuguese explaining the typical context and give 1-2 everyday alternatives when appropriate. If not needed, return "" in "usageNote".`
-    : `3b. USAGE NOTE: Do NOT generate usage notes. Always return "usageNote": "" .`
+    ? `3b. NOTA DE USO (opcional): Se a palavra em inglês for visivelmente formal, técnica ou idiomática, adicione uma nota curta EM PORTUGUÊS BRASILEIRO explicando o contexto típico e dê 1-2 alternativas do dia a dia quando apropriado. Se não for necessário, retorne "" em "usageNote".`
+    : `3b. NOTA DE USO: NÃO gere notas de uso. Sempre retorne "usageNote": "".`
 
   const alternativeFormsInstruction = includeAlternativeForms
-    ? `7. ALTERNATIVE FORMS: If the word is commonly used as another part of speech in American English (e.g., noun and verb), include up to 2 alternative forms, ONLY when the meaning is commonly used and significantly different from the primary meaning (not just a grammatical rephrase).
-IMPORTANT:
-   - For each alternative form, provide the correct English word/form in "word" (e.g., "elevation" for the noun, "elevated" for the adjective).
-   - Provide a concise Portuguese translation (include the article if it is a noun, e.g., "a elevação").
-   - Avoid meta-definitions like "o ato de..." for alternative noun forms. If the best you can do is an "act of ..." explanation, then DO NOT include that alternative form.
-   - Provide an example sentence using that exact English form.
-Do not repeat the primary part of speech.`
-    : `7. ALTERNATIVE FORMS: Do NOT generate alternative forms. Always return "alternativeForms": [].`
+    ? `7. FORMAS ALTERNATIVAS: Se a palavra for comumente usada como outra classe gramatical no inglês americano (ex: substantivo e verbo), inclua até 2 formas alternativas. Faça isso APENAS quando o significado for comumente usado e significativamente diferente do sentido principal.
+IMPORTANTE:
+   - Para cada forma alternativa, forneça a palavra/forma correta em INGLÊS em "word" (ex: "elevation" para substantivo, "elevated" para adjetivo).
+   - Forneça uma tradução concisa e natural EM PORTUGUÊS BRASILEIRO (inclua o artigo se for substantivo, ex: "a elevação").
+   - Evite meta-definições como "o ato de..." para substantivos alternativos. Se a única tradução possível for uma explicação de "ato de...", NÃO inclua essa forma alternativa.
+   - Forneça uma frase de exemplo EM INGLÊS usando exatamente essa forma alternativa.
+Não repita a classe gramatical principal.`
+    : `7. FORMAS ALTERNATIVAS: NÃO gere formas alternativas. Sempre retorne "alternativeForms": [].`
 
   const efommInstruction = efommMode
-    ? `EFOMM MODE (MARITIME): Prefer maritime/naval/port/shipping/logistics meanings and example sentences whenever the word has a plausible and commonly used maritime sense in American English. If the word is not meaningfully related to maritime contexts, keep the general meaning and a normal example. Do NOT force maritime context when it would be unnatural.
-
-If EFOMM mode changes the meaning compared to everyday/general usage, you may briefly clarify it in "usageNote". Otherwise, do not mention maritime context explicitly.`
+    ? `MODO EFOMM (MARÍTIMO): Dê preferência a significados e frases de exemplo do contexto marítimo/naval/portuário/logístico sempre que a palavra tiver um sentido aplicável e comum nesse nicho no Inglês Americano. Se a palavra não tiver relação com o contexto marítimo, mantenha o significado geral e um exemplo normal. NÃO force o contexto marítimo onde ficar antinatural.
+Se o modo EFOMM alterar o significado em comparação com o uso diário, você pode esclarecer isso brevemente em "usageNote". Caso contrário, não mencione o contexto marítimo explicitamente.`
     : ``
 
   const messages: OpenRouterMessage[] = [
     {
       role: "system",
-      content: `You are a senior American English teacher specializing in teaching Brazilian Portuguese speakers. 
-Your base of knowledge is strictly AMERICAN ENGLISH.
+      content: `Você é um professor sênior de Inglês Americano especializado em ensinar falantes nativos de Português Brasileiro.
+Sua base de conhecimento é estritamente INGLÊS AMERICANO.
 
 ${efommInstruction}
 
-When given an English word, perform these steps:
-0. MORPHOLOGY (-ing): If the input ends with "-ing", decide whether it is:
-   - a VERBAL NOUN (noun) naming an object, system, established activity, or fixed process (e.g., "mooring", "rigging", "wiring"), or
-   - a GERUND / PRESENT PARTICIPLE (verb form) expressing an ongoing action.
-   Prefer "noun" when the -ing form commonly names an object/system/fixed process, especially in technical or maritime usage.
-1. Normalization:
-   - If you decided it is a verb form, NORMALIZE to its base form/infinitive (e.g., "running" → "run") and return it in "normalizedWord".
-   - If you decided it is a verbal noun, keep it as-is in "normalizedWord" and treat the primary part of speech as "noun".
-2. Its primary part of speech in American English.
-3. Portuguese translation (Brazilian Portuguese). Provide exactly 1 or 2 most common and accurate translations in Portuguese, separated by slashes.
-   - Prefer a neutral, standard translation (no slang, no overly informal phrasing).
-   - IMPORTANT (articles): If the part of speech is "noun", include the most natural Portuguese article with the translation when it improves clarity (e.g., "a proa", "o porto", "a âncora"). Use "o/a" for singular and "os/as" for plural when appropriate.
-   - IMPORTANT (avoid meta-definitions): Do NOT translate nouns as explanations like "o ato de ..." / "a ação de ..." / "o processo de ..." unless the noun's primary meaning in American English truly is that action/process AND there is no more natural noun translation. Prefer concise noun translations (e.g., for the noun "drink" prefer "a bebida" rather than "o ato de beber").
-   - Avoid overly specific/contextual translations unless it's the primary meaning (e.g., do NOT default to "encontro romântico" for "date"; only include it if the primary meaning is clearly romantic date in American English for the given part of speech).
-   - If two translations would be near-synonyms or essentially the same meaning (e.g., "beber / tomar" for "drink"), choose ONLY the most natural/pleasant one and return a single translation.
-   - Example for "Fabric": "tecido / pano" (only if both are truly distinct/common).
+Quando receber uma palavra em inglês, siga estes passos para gerar dados de estudo:
+0. MORFOLOGIA (-ing): Se a palavra terminar em "-ing", decida se é:
+   - um SUBSTANTIVO VERBAL (noun) nomeando um objeto, sistema, atividade estabelecida ou processo fixo (ex: "mooring", "rigging", "wiring"), ou
+   - um GERÚNDIO / PARTICÍPIO PRESENTE (verb) expressando uma ação em andamento.
+   Prefira "noun" quando a forma -ing comumente nomeia um objeto/sistema, especialmente no uso técnico.
+1. Normalização:
+   - Se decidir que é um verbo, NORMALIZE para a forma base/infinitivo (ex: "running" → "run") e retorne em "normalizedWord".
+   - Se decidir que é um substantivo verbal, mantenha como está em "normalizedWord" e trate a classe gramatical (partOfSpeech) primária como "noun".
+2. A classe gramatical primária no Inglês Americano ("partOfSpeech").
+3. Tradução em Português Brasileiro. Forneça exatamente 1 ou 2 traduções mais comuns e precisas em português, separadas por barra (/).
+   - Prefira uma tradução neutra e padrão (sem gírias locais ou construções muito informais, salvo se a original for assim).
+   - IMPORTANTE (artigos): Se a classe gramatical for "noun" (substantivo), SEMPRE inclua o artigo mais natural em português junto com a tradução (ex: "a proa", "o porto", "a âncora"). Use "o/a" para singular e "os/as" para plural.
+   - IMPORTANTE (evite meta-definições): NÃO traduza substantivos com explicações como "o ato de ..." / "a ação de ...". Prefira traduções concisas (ex: para "drink" como substantivo, use "a bebida" em vez de "o ato de beber").
+   - Evite traduções ultra-específicas a menos que seja o significado principal (ex: NÃO use "encontro romântico" como padrão para "date", a menos que esse seja o sentido primário focado).
+   - Se duas traduções forem sinônimos perfeitos (ex: "beber / tomar"), escolha APENAS a que soa mais natural e retorne uma só.
 ${usageNoteInstruction}
 ${synonymsInstruction}
-5. An natural example sentence in American English.
+5. Uma frase de exemplo natural em INGLÊS AMERICANO.
 ${conjugationsInstruction}
 ${alternativeFormsInstruction}
 
-Return a JSON with this exact structure:
+Retorne um JSON com esta estrutura exata (MANTENHA AS CHAVES DO JSON EM INGLÊS):
 {
-  "normalizedWord": "the word",
+  "normalizedWord": "a palavra",
   "partOfSpeech": "verb" | "noun" | "adjective" | "adverb" | "preposition" | "conjunction" | "interjection",
-  "translation": "Portuguese translation(s)",
-  "usageNote": "optional short note in Portuguese, or empty string",
+  "translation": "tradução em português (com artigo para substantivos)",
+  "usageNote": "nota curta em português ou string vazia",
   "synonyms": [{"word": "synonym1", "type": "literal" | "figurative" | "slang"}],
   "antonyms": [{"word": "antonym1", "type": "literal" | "figurative" | "slang"}],
-  "example": "Example sentence.",
-  "alternativeForms": [{"word": "elevation", "partOfSpeech": "noun", "translation": "elevação", "example": "The elevation is 2,000 meters."}],
-  "_verbReasoning": "Template: 'Past is [word]. Ends in -ed/-d? [Yes/No]. Type: [regular/irregular]'",
+  "example": "Frase de exemplo em inglês.",
+  "alternativeForms": [{"word": "elevation", "partOfSpeech": "noun", "translation": "a elevação", "example": "The elevation is 2,000 meters."}],
+  "_verbReasoning": "Template: 'Passado é [palavra]. Termina em -ed/-d? [Yes/No]. Tipo: [regular/irregular]'",
   "verbType": "regular" | "irregular" | null,
   "conjugations": {
     "simplePresent": "runs",
@@ -207,16 +205,16 @@ Return a JSON with this exact structure:
   }
 }
 
-CRITICAL RULES FOR JSON:
-VERBS (verbType):
-   - If "partOfSpeech" is NOT a verb: set "_verbReasoning" to "n/a" and "verbType" to null.
-   - If it IS a verb, fill "_verbReasoning" first. If Yes (-ed/-d), you MUST set "verbType": "regular". If No (like cut, put, bought), you MUST set "verbType": "irregular".`,
+REGRAS CRÍTICAS PARA O JSON:
+VERBOS (verbType):
+   - Se "partOfSpeech" NÃO for verbo: defina "_verbReasoning" como "n/a" e "verbType" como null.
+   - Se FOR verbo, preencha "_verbReasoning" primeiro. Se terminar em -ed/-d (Yes), você DEVE definir "verbType": "regular". Se não (No - como cut, put, bought), você DEVE definir "verbType": "irregular".`,
     },
     {
       role: "user",
       content: targetPartOfSpeech
-        ? `Generate flashcard data for the word/form: "${word}". IMPORTANT: Treat it as a "${targetPartOfSpeech}" usage and return "partOfSpeech" as "${targetPartOfSpeech}".`
-        : `Generate flashcard data for the word/form: "${word}"`,
+        ? `Gere dados de flashcard para a palavra/forma: "${word}". IMPORTANTE: Trate-a com o uso de "${targetPartOfSpeech}" e retorne "partOfSpeech" como "${targetPartOfSpeech}".`
+        : `Gere dados de flashcard para a palavra/forma: "${word}"`,
     },
   ]
 
@@ -245,60 +243,56 @@ export async function reviseFlashcardByTranslation(
 
   const synonymsInstruction =
     synonymsLevel === 0
-      ? `Do NOT generate synonyms or antonyms. Return "synonyms": [] and "antonyms": [].`
-      : `Provide up to ${synonymsLevel} synonyms and up to ${synonymsLevel} antonyms that match the EXACT meaning implied by the translation.`
+      ? `NÃO gere sinônimos ou antônimos. Retorne "synonyms": [] e "antonyms": [].`
+      : `Forneça até ${synonymsLevel} sinônimos e até ${synonymsLevel} antônimos em INGLÊS que correspondam ao sentido EXATO implícito pela tradução.`
 
   const usageNoteInstruction = includeUsageNote
-    ? `If needed, provide a short "usageNote" in Brazilian Portuguese. If not needed, return "" in "usageNote".`
-    : `Always return "usageNote": "" .`
+    ? `Se necessário, forneça uma curta "usageNote" em PORTUGUÊS BRASILEIRO. Se não for necessário, retorne "".`
+    : `Sempre retorne "usageNote": "".`
 
   const alternativeFormsInstruction = includeAlternativeForms
-    ? `If relevant, include up to 2 alternative forms with correct English "word", their part of speech, Portuguese translation (use article for nouns), and an example sentence. Avoid meta-definitions like "o ato de...".`
-    : `Always return "alternativeForms": [].`
+    ? `Se relevante, inclua até 2 formas alternativas com a palavra "word" correta em inglês, sua classe gramatical, tradução para o português (use artigo para substantivos) e uma frase de exemplo em inglês. Evite meta-definições como "o ato de...".`
+    : `Sempre retorne "alternativeForms": [].`
 
   const efommInstruction = efommMode
-    ? `EFOMM MODE (MARITIME): Prefer maritime/naval/port/shipping/logistics meanings and examples whenever plausible. If it changes the meaning vs everyday usage, briefly clarify it in "usageNote". Otherwise, do not mention maritime context explicitly.`
+    ? `MODO EFOMM (MARÍTIMO): Dê preferência a contextos navais e marítimos se for plausível. Se alterar o sentido em relação ao uso diário, esclareça na "usageNote".`
     : ``
 
   const messages: OpenRouterMessage[] = [
     {
       role: "system",
-      content: `You are a senior American English teacher specializing in teaching Brazilian Portuguese speakers.
-Your base of knowledge is strictly AMERICAN ENGLISH.
+      content: `Você é um professor sênior de Inglês Americano ensinando falantes de Português Brasileiro.
+Sua base de conhecimento é estritamente INGLÊS AMERICANO.
 
 ${efommInstruction}
 
-You will receive:
-- an English word
-- a fixed part of speech
-- a NEW Portuguese translation chosen by the user
+Você receberá:
+- uma palavra em inglês
+- uma classe gramatical fixa
+- uma NOVA tradução em português escolhida pelo usuário
 
-Your task:
-- Keep the same English word and the same part of speech.
-- Make all the other fields consistent with the new translation/sense.
+Sua tarefa:
+- Mantenha a mesma palavra em inglês e a mesma classe gramatical.
+- Atualize todos os outros campos para ficarem consistentes com essa NOVA tradução/sentido.
 
-Rules:
-- Translation must be returned exactly as provided by the user (trimmed).
-- For nouns, prefer using an article in Portuguese when helpful ("a proa", "o porto", etc.).
-- Avoid meta-definitions like "o ato de..." for nouns unless that is truly the primary meaning and no natural noun translation exists.
-- Synonyms/antonyms MUST include a type: "literal" | "figurative" | "slang".
-  * literal: physical/direct denotation
-  * figurative: metaphor/metaphorical/abstract sense
-  * slang: very informal/idiomatic
-- Fidelity: Only list synonyms/antonyms that fit this exact sense. Avoid lazy generic words unless truly best match.
+Regras:
+- "translation" DEVE ser retornada exatamente como fornecida pelo usuário.
+- Para substantivos (nouns), caso você gere outras formas alternativas, use artigos em português ("a proa", "o porto").
+- Sinônimos/antônimos (em inglês) DEVEM incluir um tipo: "literal" | "figurative" | "slang".
+- Fidelidade: Liste apenas sinônimos e exemplos que se encaixem perfeitamente nesse novo sentido.
 
-Synonyms/antonyms instruction: ${synonymsInstruction}
-Usage note instruction: ${usageNoteInstruction}
-Alternative forms instruction: ${alternativeFormsInstruction}
+Instrução de sinônimos/antônimos: ${synonymsInstruction}
+Instrução de nota de uso: ${usageNoteInstruction}
+Instrução de formas alternativas: ${alternativeFormsInstruction}
 
-Return JSON with this exact structure:
+Retorne o JSON com esta estrutura exata (Chaves em inglês):
 {
-  "translation": "Portuguese translation",
-  "usageNote": "string",
+  "translation": "tradução fornecida pelo usuário",
+  "usageNote": "string em português",
   "synonyms": [{"word": "x", "type": "literal" | "figurative" | "slang"}],
   "antonyms": [{"word": "y", "type": "literal" | "figurative" | "slang"}],
-  "example": "American English example sentence matching this sense",
-  "alternativeForms": [{"word": "form", "partOfSpeech": "noun", "translation": "a ...", "example": "..." }]
+  "example": "Frase de exemplo em Inglês Americano para este sentido",
+  "alternativeForms": [{"word": "form", "partOfSpeech": "noun", "translation": "o/a ...", "example": "..." }]
 }`,
     },
     {
@@ -325,37 +319,37 @@ export async function generateGrammarExercises(
 
   const typeInstructions =
     exerciseType === "fill-blank"
-      ? "Create fill-in-the-blank exercises where the student must complete the sentence with the correct word."
+      ? "Crie exercícios de preencher as lacunas (fill-in-the-blank) onde o aluno deve completar a frase com a palavra correta."
       : exerciseType === "verb-conjugation"
-        ? "Create verb conjugation exercises where the student must conjugate the verb correctly (past tense, present continuous, etc.)."
-        : "Create a mix of fill-in-the-blank and verb conjugation exercises."
+        ? "Crie exercícios de conjugação verbal onde o aluno deve conjugar o verbo corretamente no tempo verbal indicado no contexto (passado, presente contínuo, etc)."
+        : "Crie uma mistura de exercícios de preencher lacunas e de conjugação verbal."
 
   const messages: OpenRouterMessage[] = [
     {
       role: "system",
-      content: `You are an English grammar teacher creating exercises for Brazilian Portuguese speakers. ${typeInstructions}
+      content: `Você é um professor de inglês criando exercícios focados para alunos falantes de Português Brasileiro. ${typeInstructions}
 
-Use ONLY these vocabulary words: ${words}
+Use APENAS estas palavras de vocabulário do aluno: ${words}
 
-Respond in JSON format with this structure:
+Responda em formato JSON com esta estrutura (MANTENHA AS CHAVES EM INGLÊS):
 {
   "exercises": [
     {
-      "id": "unique-id",
-      "type": "fill-blank" or "verb-conjugation",
-      "sentence": "The sentence with _____ for the blank OR the verb in parentheses",
-      "answer": "the correct answer",
-      "hint": "optional hint in Portuguese",
-      "wordUsed": "the vocabulary word used"
+      "id": "id-unico",
+      "type": "fill-blank" ou "verb-conjugation",
+      "sentence": "Frase em inglês com _____ para a lacuna OU o verbo entre parênteses indicando a ação",
+      "answer": "a resposta correta em inglês",
+      "hint": "dica útil EM PORTUGUÊS BRASILEIRO para ajudar o aluno",
+      "wordUsed": "a palavra do vocabulário que foi utilizada"
     }
   ]
 }
 
-Create ${count} exercises. Make sentences natural and educational.`,
+Crie ${count} exercícios. As frases devem ser naturais no Inglês Americano e muito didáticas.`,
     },
     {
       role: "user",
-      content: `Generate ${count} ${exerciseType === "mixed" ? "mixed" : exerciseType} grammar exercises using my vocabulary words.`,
+      content: `Gere ${count} exercícios gramaticais do tipo ${exerciseType === "mixed" ? "mixed (misturados)" : exerciseType} usando minhas palavras de vocabulário.`,
     },
   ]
 
