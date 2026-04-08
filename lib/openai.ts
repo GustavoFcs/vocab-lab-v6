@@ -138,7 +138,7 @@ export async function generateFlashcardData(
 
   const conjugationsInstruction = includeConjugations
     ? `6. CONJUGAÇÕES (Em Inglês Americano): Se "partOfSpeech" for "verb", forneça os 6 tempos verbais. Se NÃO for um verbo, defina "conjugations" como null.`
-    : `6. CONJUGAÇÕES: Defina "conjugations" como null.`
+    : `6. CONJUGAÇÕES: Defina "conjugations" null.`
 
   const usageNoteInstruction = includeUsageNote
     ? `3b. NOTA DE USO (opcional): Seja EXTREMAMENTE DIDÁTICO, porém PRECISO e DIRETO AO PONTO (estilo flashcard, máximo absoluto de 2 frases curtas). 
@@ -152,6 +152,7 @@ export async function generateFlashcardData(
     ? `7. FORMAS ALTERNATIVAS (Derivações e Conversões): SEMPRE QUE POSSÍVEL, force a inclusão de até 2 formas derivadas ou de conversão de classe gramatical muito comuns no Inglês Americano. 
    - Exemplo prático: se o card for o verbo "run", busque listar o substantivo ("run" - a corrida) e um derivado ("runner" - o corredor, ou "runny" - escorrendo). Se for "use", traga "useful" e "usage".
 IMPORTANTE:
+   - TRAVA DE EXPRESSÕES: Se após a normalização (no passo 1) a sua palavra final contiver ESPAÇOS (ou seja, se transformou em uma "phrase"), ABORTE esta regra e retorne "alternativeForms": [] obrigatoriamente.
    - Tente atingir o máximo de 2 formas sempre que existirem derivações naturais.
    - A classe gramatical ("partOfSpeech") dessas alternativas DEVE ser diferente da classe principal do card.
    - A "word" deve ser a forma correta em INGLÊS. Pode ser a mesma palavra-raiz atuando em outra classe gramatical.
@@ -179,13 +180,13 @@ Quando receber uma palavra em inglês, siga estes passos para gerar dados de est
    - um GERÚNDIO / PARTICÍPIO PRESENTE (verb) expressando uma ação em andamento.
    Prefira "noun" quando a forma -ing comumente nomeia um objeto/sistema, especialmente no uso técnico.
 1. NORMALIZAÇÃO (CORREÇÃO DE ERROS E HÍFEN):
-   - ERRO DE HÍFEN EM VERBOS/EXPRESSÕES: Se o usuário enviou verbos compostos, modais ou phrasal verbs com hífen indevido (ex: "rely-on", "should-have", "carry-out"), CORRIJA substituindo o hífen por um ESPAÇO em "normalizedWord" (ex: "rely on", "should have"). PROIBIDO juntar as palavras (nunca retorne "relyon" ou "shouldhave").
+   - ERRO DE HÍFEN EM VERBOS/EXPRESSÕES: Se o usuário enviou verbos compostos, modais ou phrasal verbs com hífen indevido (ex: "look-forward-to", "rely-on", "should-have", "carry-out"), CORRIJA substituindo o hífen por um ESPAÇO em "normalizedWord" (ex: "look forward to", "rely on"). PROIBIDO juntar as palavras.
    - ERRO DE INFINITIVO: Se o usuário enviar "to-steer" ou "to steer", remova o "to" e normalize apenas para "steer".
    - HÍFEN CORRETO: Substantivos ou adjetivos que exigem hífen (ex: "make-up", "might-be") mantêm o hífen.
    - Siglas e termos compostos corretos (ex: "challenging water quality"): mantenha a forma original.
 2. CLASSE GRAMATICAL ("partOfSpeech"): Classifique OBRIGATORIAMENTE a palavra usando APENAS as classes do JSON. 
    - Retorne "acronym" para siglas. 
-   - Retorne "phrase" APENAS para expressões com mais de uma palavra SEPARADAS POR ESPAÇO (ex: "rely on", "should have"). Palavras ligadas por hífen NÃO são "phrase", classifique-as por sua função (geralmente "noun" ou "adjective").
+   - Retorne "phrase" APENAS para expressões com mais de uma palavra SEPARADAS POR ESPAÇO (ex: "look forward to", "rely on", "should have"). Palavras ligadas por hífen NÃO são "phrase", classifique-as por sua função (geralmente "noun" ou "adjective").
 3. Tradução em Português Brasileiro. Forneça exatamente 1 ou 2 traduções mais comuns e precisas em português, separadas por barra (/).
    - Prefira uma tradução neutra e padrão.
    - TRADUÇÃO TÉCNICA (ANTI-ROBÔ): Para expressões compostas e siglas técnicas, evite traduções literais palavra por palavra. Use jargão natural. Exemplo: não traduza "challenging" em contexto de engenharia como "desafiadora", prefira "adversa", "crítica" ou "fora do padrão".
