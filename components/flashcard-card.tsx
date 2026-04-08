@@ -349,7 +349,7 @@ export function FlashcardCard({ flashcard, onDelete, onCreateFromAlternative, on
           isFlipped ? "opacity-0 translate-y-[-100%]" : "opacity-100 translate-y-0"
         )}>
           <div className="flex justify-between items-start gap-1">
-            <h3 className="font-bold text-base truncate pr-1 flex-1 leading-snug">{flashcard.word}</h3>
+            <h3 className="font-bold text-base truncate pr-1 flex-1 leading-snug text-center">{flashcard.word}</h3>
             <div className="flex flex-col items-end gap-0.5 shrink-0">
               <Badge className={cn("text-[9px] px-1.5 h-4 leading-none", partOfSpeechColors[partOfSpeech])}>
                 {partOfSpeechLabels[partOfSpeech].substring(0, 3)}.
@@ -455,7 +455,7 @@ export function FlashcardCard({ flashcard, onDelete, onCreateFromAlternative, on
           </div>
 
           <div className="flex-1 flex items-center justify-center">
-            <h3 className="text-3xl font-bold text-foreground">
+            <h3 className="text-3xl font-bold text-foreground text-center break-words">
               {flashcard.word}
             </h3>
           </div>
