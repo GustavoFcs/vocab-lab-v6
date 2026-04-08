@@ -128,6 +128,7 @@ export function FlashcardsPage() {
         synonyms: data.synonyms,
         antonyms: data.antonyms,
         example: data.example,
+        exampleTranslation: (data as any).exampleTranslation || "",
         alternativeForms: data.alternativeForms || [],
         conjugations: data.conjugations,
         verbType: data.verbType,
