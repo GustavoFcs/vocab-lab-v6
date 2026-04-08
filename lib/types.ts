@@ -3,7 +3,7 @@ export interface ClassifiedWord {
   type: "literal" | "figurative" | "slang" | "abstract"
 }
 
-export type PartOfSpeech = "verb" | "noun" | "adjective" | "adverb" | "preposition" | "conjunction" | "interjection"
+export type PartOfSpeech = "verb" | "noun" | "adjective" | "adverb" | "preposition" | "conjunction" | "interjection" | "phrase" | "acronym"
 
 export interface AlternativeForm {
   word: string

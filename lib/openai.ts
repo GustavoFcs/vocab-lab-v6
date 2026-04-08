@@ -194,7 +194,7 @@ ${alternativeFormsInstruction}
 Retorne um JSON com esta estrutura exata (MANTENHA AS CHAVES DO JSON EM INGLÊS):
 {
   "normalizedWord": "a palavra",
-  "partOfSpeech": "verb" | "noun" | "adjective" | "adverb" | "preposition" | "conjunction" | "interjection",
+  "partOfSpeech": "verb" | "noun" | "adjective" | "adverb" | "preposition" | "conjunction" | "interjection" | "phrase" | "acronym",
   "translation": "tradução em português (com artigo para substantivos)",
   "usageNote": "nota curta em português ou string vazia",
   "synonyms": [{"word": "synonym1", "type": "literal" | "figurative" | "slang"}],
