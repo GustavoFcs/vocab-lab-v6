@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'VocabLab - Aprenda Inglês com IA',
+  title: 'Library — VocabLab',
   description: 'Flashcards dinâmicos e exercícios de gramática personalizados usando inteligência artificial',
   icons: {
     icon: [
@@ -54,7 +54,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <Header />
-          <main className="container mx-auto px-4 py-8 max-w-7xl">
+          <main className="container mx-auto px-4 pt-4 pb-8 max-w-7xl">
             {children}
           </main>
           <Analytics />
